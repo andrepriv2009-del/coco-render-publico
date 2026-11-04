@@ -1,0 +1,64 @@
+name: Coco — Short final de 60 segundos (Wan 2.2)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Escribe GENERAR para iniciar las 12 escenas Wan 2.2
+        required: true
+        default: GENERAR
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: coco-short-60s
+  cancel-in-progress: false
+jobs:
+  render-short:
+    if: \${{ inputs.confirm == 'GENERAR' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+      - name: Descargar referencia privada de Coco
+        env:
+          GH_READ_TOKEN: \${{ secrets.GH_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "\${GH_READ_TOKEN:-}" ]; then
+            echo "::error::Falta GH_READ_TOKEN."
+            exit 1
+          fi
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_READ_TOKEN" \
+            -H "Accept: application/vnd.github.raw+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" \
+            -o coco-referencia.webp
+          test -s coco-referencia.webp
+      - name: Instalar FFmpeg y fuentes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar generador Wan, voz y audio
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install gradio_client edge-tts numpy
+      - name: Generar 12 partes y ensamblar Short de 60 segundos
+        env:
+          HF_TOKEN: \${{ secrets.HF_TOKEN }}
+          PYTHONUNBUFFERED: "1"
+        run: python scripts/generate_coco_short.py
+      - name: Subir resultado final o partes recuperables
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coco-Short-60s-build
+          path: output/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 0
