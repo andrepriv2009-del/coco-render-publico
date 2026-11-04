@@ -2,8 +2,14 @@ name: Renderizar video 3D de Coco
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/render-coco-video.yml"
+      - "video/**"
   schedule:
-    - cron: "0 0,8,16 * * *"
+    - cron: "17 0,8,16 * * *"
 
 concurrency:
   group: coco-render-publico
