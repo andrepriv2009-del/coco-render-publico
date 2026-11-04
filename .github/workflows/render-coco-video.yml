@@ -44,7 +44,7 @@ jobs:
               raise SystemExit("Falta el secreto GENERATOR_TOKEN en GitHub Actions.")
           request = urllib.request.Request(
               os.environ["WORKER_URL"].rstrip("/") + "/render-feed",
-              headers={"Authorization": "Bearer " + token}
+              headers={"Authorization": "Bearer " + token, "User-Agent": "CocoRenderBot/1.0 (GitHub Actions; automated video renderer)"}
           )
           try:
               with urllib.request.urlopen(request, timeout=45) as response:
@@ -171,7 +171,7 @@ jobs:
           request = urllib.request.Request(
               os.environ["WORKER_URL"].rstrip("/") + "/render-complete",
               data=json.dumps({"id": episode["id"]}).encode(),
-              headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+              headers={"Authorization": "Bearer " + token, "Content-Type": "application/json", "User-Agent": "CocoRenderBot/1.0 (GitHub Actions; automated video renderer)"},
               method="POST"
           )
           try:
