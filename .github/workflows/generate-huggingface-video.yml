@@ -1,0 +1,103 @@
+name: Generar clip de Coco con Hugging Face (Wan 2.2)
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Movimiento y acción de la escena
+        required: true
+        default: "Coco, el mismo monito de la imagen de referencia, sonríe y saluda a cámara dentro de una nave espacial. Su gorra roja y mochila cohete plateada permanecen iguales. La cámara hace un acercamiento suave; animación 3D infantil cinematográfica, movimiento natural y expresión alegre."
+        type: string
+      duration:
+        description: Duración en segundos (0.5 a 5.0)
+        required: false
+        default: "3.5"
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: coco-huggingface-wan22
+  cancel-in-progress: false
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Preparar entorno
+        uses: actions/checkout@v4
+      - name: Descargar referencia privada de Coco
+        env:
+          GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_READ_TOKEN:-}" ]; then
+            echo "::error::Falta el secreto GH_READ_TOKEN (Contents: Read del repositorio privado coco-monito-espacial)."
+            exit 1
+          fi
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_READ_TOKEN" \
+            -H "Accept: application/vnd.github.raw+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" \
+            -o coco-referencia.webp
+          test -s coco-referencia.webp
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar cliente de Hugging Face
+        run: python -m pip install --upgrade gradio_client
+      - name: Generar video con Wan 2.2 I2V 14B
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          VIDEO_PROMPT: ${{ inputs.prompt }}
+          VIDEO_DURATION: ${{ inputs.duration }}
+        run: |
+          python - <<'PY'
+          import os
+          from gradio_client import Client, handle_file
+
+          token = os.environ.get("HF_TOKEN", "").strip()
+          prompt = os.environ["VIDEO_PROMPT"].strip()
+          duration = float(os.environ["VIDEO_DURATION"])
+          image_path = "coco-referencia.webp"
+
+          if not token:
+              raise SystemExit("Falta el secreto HF_TOKEN en este repositorio.")
+          if not os.path.isfile(image_path) or os.path.getsize(image_path) == 0:
+              raise SystemExit("No se descargó la referencia privada de Coco.")
+          if not prompt:
+              raise SystemExit("El prompt está vacío.")
+          if not 0.5 <= duration <= 5.0:
+              raise SystemExit("La duración debe estar entre 0.5 y 5 segundos.")
+
+          client = Client("zerogpu-aoti/wan2-2-fp8da-aoti-faster", token=token)
+          result = client.predict(
+              input_image=handle_file(image_path),
+              prompt=prompt,
+              steps=4,
+              negative_prompt="low quality, flicker, jitter, deformed face, extra limbs, text, watermark, scene cuts, changed clothes, missing red cap, missing rocket backpack",
+              duration_seconds=duration,
+              guidance_scale=1,
+              guidance_scale_2=1,
+              seed=42,
+              randomize_seed=True,
+              api_name="/generate_video",
+          )
+
+          video_path = result[0] if isinstance(result, (tuple, list)) else result
+          if isinstance(video_path, dict):
+              video_path = video_path.get("path") or video_path.get("name")
+          if not video_path or not os.path.isfile(video_path):
+              raise SystemExit(f"No se recibió un archivo de video válido: {video_path!r}")
+          os.makedirs("output", exist_ok=True)
+          import shutil
+          shutil.copy2(video_path, "output/Coco-clip.mp4")
+          print("VIDEO_GENERADO=output/Coco-clip.mp4")
+          PY
+      - name: Guardar clip generado
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coco-clip-HuggingFace-Wan22
+          path: output/Coco-clip.mp4
+          if-no-files-found: error
+          retention-days: 7
