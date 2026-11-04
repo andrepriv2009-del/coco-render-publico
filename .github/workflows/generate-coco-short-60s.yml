@@ -1,29 +1,43 @@
 name: Coco — Short final de 60 segundos (Wan 2.2)
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/generate-coco-short-60s.yml"
+  schedule:
+    - cron: "30 6 * * *"
   workflow_dispatch:
     inputs:
       confirm:
-        description: Escribe GENERAR para iniciar las 12 escenas Wan 2.2
+        description: Escribe GENERAR para reanudar o continuar las escenas
         required: true
         default: GENERAR
         type: string
 permissions:
+  actions: read
   contents: read
 concurrency:
   group: coco-short-60s
   cancel-in-progress: false
 jobs:
   render-short:
-    if: ${{ github.event_name == 'push' || inputs.confirm == 'GENERAR' }}
+    if: ${{ github.event_name == 'schedule' || inputs.confirm == 'GENERAR' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
       - name: Descargar proyecto
         uses: actions/checkout@v4
+      - name: Recuperar escenas de la ejecución anterior
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          PREVIOUS_RUN_ID="$(gh run list --workflow generate-coco-short-60s.yml --branch main --json databaseId,status --limit 20 | jq -r --arg current "$GITHUB_RUN_ID" '[.[] | select((.databaseId | tostring) != $current and .status == "completed")][0].databaseId // empty')"
+          if [ -n "$PREVIOUS_RUN_ID" ]; then
+            echo "Recuperando escenas del intento $PREVIOUS_RUN_ID"
+            gh run download "$PREVIOUS_RUN_ID" --name Coco-Short-60s-build --dir output || echo "::warning::No se pudo recuperar el artefacto anterior; se intentará continuar con los archivos disponibles."
+          else
+            echo "No hay un intento anterior con artefactos."
+          fi
+          mkdir -p output/parts
+          find output/parts -maxdepth 1 -name 'part-*.mp4' -type f -printf '%f\n' | sort || true
       - name: Descargar referencia privada de Coco
         env:
           GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
@@ -52,12 +66,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install gradio_client edge-tts numpy
-      - name: Generar 12 partes y ensamblar Short de 60 segundos
+      - name: Generar escenas pendientes y ensamblar Short de 60 segundos
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           PYTHONUNBUFFERED: "1"
         run: python scripts/generate_coco_short.py
-      - name: Subir resultado final o partes recuperables
+      - name: Guardar avance y resultado
         if: always()
         uses: actions/upload-artifact@v4
         with:
