@@ -1,5 +1,9 @@
 name: Coco — Short final de 60 segundos (Wan 2.2)
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/generate-coco-short-60s.yml"
   workflow_dispatch:
     inputs:
       confirm:
@@ -14,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   render-short:
-    if: ${{ inputs.confirm == 'GENERAR' }}
+    if: ${{ github.event_name == 'push' || inputs.confirm == 'GENERAR' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
