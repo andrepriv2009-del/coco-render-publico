@@ -70,7 +70,12 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           PYTHONUNBUFFERED: "1"
-        run: python scripts/generate_coco_short.py
+        run: |
+          if [ -s output/Coco-Short-60s-FINAL.mp4 ]; then
+            echo "El video final ya existe; no se consume GPU ni se vuelve a renderizar."
+          else
+            python scripts/generate_coco_short.py
+          fi
       - name: Guardar avance y resultado
         if: always()
         uses: actions/upload-artifact@v4
