@@ -35,31 +35,30 @@ jobs:
           import json, os, urllib.error, urllib.request
           token = os.environ.get("GENERATOR_TOKEN", "")
           if not token:
-              raise SystemExit("Falta el secreto GENERATOR_TOKEN en Settings > Secrets and variables > Actions.")
-          url = os.environ["WORKER_URL"].rstrip("/") + "/render-feed"
-          request = urllib.request.Request(url, headers={"Authorization": "Bearer " + token})
+              raise SystemExit("Falta el secreto GENERATOR_TOKEN en GitHub Actions.")
+          request = urllib.request.Request(
+              os.environ["WORKER_URL"].rstrip("/") + "/render-feed",
+              headers={"Authorization": "Bearer " + token}
+          )
           try:
               with urllib.request.urlopen(request, timeout=45) as response:
                   data = json.load(response)
           except urllib.error.HTTPError as exc:
-              detail = exc.read().decode("utf-8", "replace")[:1000]
-              raise SystemExit(f"Worker respondió HTTP {exc.code}: {detail}")
-          except Exception as exc:
-              raise SystemExit(f"No se pudo consultar el Worker: {exc}")
+              raise SystemExit(f"Worker HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:1000]}")
           episode = data.get("episode") if isinstance(data, dict) else None
           if not episode:
-              print("No hay episodios pendientes en D1; este ciclo se omite.")
+              print("No hay episodios pendientes; se omite este ciclo.")
               with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-                  output.write("has_episode=false\\n")
+                  output.write("has_episode=false\n")
               raise SystemExit(0)
           for key in ("id", "title", "script"):
               if not isinstance(episode.get(key), str) or not episode[key].strip():
-                  raise SystemExit(f"El episodio no contiene un campo {key} válido.")
+                  raise SystemExit(f"El episodio no contiene {key} válido.")
           os.makedirs("/tmp/coco-render", exist_ok=True)
           with open("/tmp/coco-render/episode.json", "w", encoding="utf-8") as file:
               json.dump(episode, file, ensure_ascii=False)
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write("has_episode=true\\n")
+              output.write("has_episode=true\n")
           print("Episodio recibido:", episode["id"], episode["title"])
           PY
 
@@ -78,20 +77,19 @@ jobs:
           with open("/tmp/coco-render/episode.json", encoding="utf-8") as file:
               episode = json.load(file)
           script = episode["script"]
-          guest = re.search(r"FICHA DE PERSONAJE INVITADO\\s*[—-]\\s*([^\\n]+)", script, re.I)
+          guest = re.search(r"FICHA DE PERSONAJE INVITADO\s*[—-]\s*([^\n]+)", script, re.I)
           speakers = ["COCO"]
           if guest:
               speakers.append(guest.group(1).strip().upper())
-          pattern = re.compile(r"^(?:" + "|".join(re.escape(name) for name in speakers) + r")(?:\\s*\\([^)]*\\))?:\\s*(.+)$", re.I)
           spoken = []
           for line in script.splitlines():
-              match = pattern.match(line.strip())
-              if match:
-                  # El grupo 2 es el diálogo; el grupo 1 era el nombre del personaje.
-                  dialogue = match.group(1 + len(speakers)) if False else match.group(1)
-          # Extraer diálogo sin confundirlo con el nombre del personaje.
-          pattern = re.compile(r"^(?:" + "|".join(re.escape(name) for name in speakers) + r")(?:\\s*\\([^)]*\\))?:\\s*(.+)$", re.I)
-          spoken = [match.group(1).strip() for line in script.splitlines() if (match := pattern.match(line.strip()))]
+              if ":" not in line:
+                  continue
+              speaker, dialogue = line.split(":", 1)
+              speaker = speaker.strip().upper()
+              if any(speaker == name or speaker.startswith(name + " (") for name in speakers):
+                  if dialogue.strip():
+                      spoken.append(dialogue.strip())
           if not spoken:
               spoken = [episode["title"] + ". ¡Hola, exploradores! Coco está listo para una nueva aventura espacial."]
           narration = "¡Bienvenidos a " + episode["title"] + "! " + " ".join(spoken) + " ¡Hasta la próxima aventura espacial!"
@@ -99,51 +97,48 @@ jobs:
               file.write(narration)
           words = narration.split()
           chunks = [" ".join(words[i*len(words)//5:(i+1)*len(words)//5]) for i in range(5)]
-          def stamp(seconds):
-              return f"00:00:{seconds:02},000"
           with open("/tmp/coco-render/subs.srt", "w", encoding="utf-8") as file:
               for i, chunk in enumerate(chunks):
-                  file.write(f"{i+1}\\n{stamp(i*12)} --> {stamp((i+1)*12)}\\n{chunk}\\n\\n")
-          print("Narración preparada:", episode["title"])
+                  file.write(f"{i+1}\n00:00:{i*12:02},000 --> 00:00:{(i+1)*12:02},000\n{chunk}\n\n")
+          print("Narración creada desde el diálogo del episodio:", episode["title"])
           PY
           espeak-ng -v es -s 132 -p 52 -a 170 -f /tmp/coco-render/narracion.txt -w /tmp/coco-render/voz.wav
           python3 - <<'PY'
           import math, wave, struct
-          sample_rate = 44100
-          duration = 60
+          rate = 44100
           notes = [(0,196),(4,247),(8,294),(12,247),(16,220),(20,262),(24,330),(28,262),(32,196),(36,247),(40,294),(44,330),(48,294),(52,247),(56,196)]
           with wave.open("/tmp/coco-render/musica.wav", "wb") as audio:
-              audio.setnchannels(2); audio.setsampwidth(2); audio.setframerate(sample_rate)
-              for start in range(0, sample_rate * duration, 4410):
+              audio.setnchannels(2); audio.setsampwidth(2); audio.setframerate(rate)
+              for start in range(0, rate*60, 4410):
                   frames = []
-                  for index in range(start, min(start + 4410, sample_rate * duration)):
-                      t = index / sample_rate
+                  for index in range(start, min(start+4410, rate*60)):
+                      t = index/rate
                       base = 0.0
-                      for note_start, frequency in notes:
-                          local = t - note_start
+                      for note_start, freq in notes:
+                          local = t-note_start
                           if 0 <= local < 4:
-                              envelope = min(1, local * 3) * max(0, min(1, (4-local) * 1.5))
-                              base += envelope * (0.55*math.sin(2*math.pi*frequency*t) + 0.20*math.sin(2*math.pi*frequency*2*t))
-                      pad = 0.12*math.sin(2*math.pi*98*t) + 0.07*math.sin(2*math.pi*146.83*t)
-                      sample = int(max(-1, min(1, base*0.12 + pad*0.10)) * 32767)
+                              env = min(1, local*3)*max(0, min(1, (4-local)*1.5))
+                              base += env*(0.55*math.sin(2*math.pi*freq*t)+0.20*math.sin(4*math.pi*freq*t))
+                      pad = 0.12*math.sin(2*math.pi*98*t)+0.07*math.sin(2*math.pi*146.83*t)
+                      sample = int(max(-1, min(1, base*0.12+pad*0.10))*32767)
                       frames.append(struct.pack("<hh", sample, sample))
                   audio.writeframes(b"".join(frames))
           PY
 
-      - name: Montar MP4 vertical y validar audio y duración
+      - name: Montar MP4 vertical y validar
         if: steps.episode.outputs.has_episode == 'true'
         run: |
-          ffmpeg -y -i /tmp/coco-render/coco-base.mp4 -i /tmp/coco-render/voz.wav -i /tmp/coco-render/musica.wav \\
-            -filter_complex "[1:a]apad=pad_dur=60,atrim=duration=60,volume=1.15[voz];[2:a]volume=0.38[musica];[voz][musica]amix=inputs=2:duration=longest:dropout_transition=2[audio]" \\
-            -vf "scale=720:1280:flags=lanczos,subtitles=/tmp/coco-render/subs.srt:force_style='FontName=DejaVu Sans,FontSize=14,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101830,BorderStyle=3,BackColour=&H99050A1D,Outline=1,Shadow=0,Alignment=2,MarginV=88,MarginL=48,MarginR=48'" \\
-            -map 0:v -map "[audio]" -t 60 -r 24 -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -c:a aac -b:a 160k -movflags +faststart \\
+          ffmpeg -y -i /tmp/coco-render/coco-base.mp4 -i /tmp/coco-render/voz.wav -i /tmp/coco-render/musica.wav \
+            -filter_complex "[1:a]apad=pad_dur=60,atrim=duration=60,volume=1.15[voz];[2:a]volume=0.38[musica];[voz][musica]amix=inputs=2:duration=longest:dropout_transition=2[audio]" \
+            -vf "scale=720:1280:flags=lanczos,subtitles=/tmp/coco-render/subs.srt:force_style='FontName=DejaVu Sans,FontSize=14,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101830,BorderStyle=3,BackColour=&H99050A1D,Outline=1,Shadow=0,Alignment=2,MarginV=88,MarginL=48,MarginR=48'" \
+            -map 0:v -map "[audio]" -t 60 -r 24 -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -c:a aac -b:a 160k -movflags +faststart \
             /tmp/coco-render/Coco-el-Monito-Espacial.mp4
           test "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 /tmp/coco-render/Coco-el-Monito-Espacial.mp4)" = "720x1280"
           ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/coco-render/Coco-el-Monito-Espacial.mp4 | awk '{ if ($1 < 59 || $1 > 61) exit 1 }'
           test -n "$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 /tmp/coco-render/Coco-el-Monito-Espacial.mp4)"
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 /tmp/coco-render/Coco-el-Monito-Espacial.mp4
 
-      - name: Guardar video MP4 como artefacto
+      - name: Guardar MP4 como artefacto
         if: steps.episode.outputs.has_episode == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -167,10 +162,9 @@ jobs:
           token = os.environ.get("GENERATOR_TOKEN", "")
           if not token:
               raise SystemExit("Falta GENERATOR_TOKEN.")
-          payload = json.dumps({"id": episode["id"]}).encode()
           request = urllib.request.Request(
               os.environ["WORKER_URL"].rstrip("/") + "/render-complete",
-              data=payload,
+              data=json.dumps({"id": episode["id"]}).encode(),
               headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
               method="POST"
           )
@@ -178,8 +172,7 @@ jobs:
               with urllib.request.urlopen(request, timeout=45) as response:
                   result = json.load(response)
           except urllib.error.HTTPError as exc:
-              detail = exc.read().decode("utf-8", "replace")[:1000]
-              raise SystemExit(f"Worker respondió HTTP {exc.code}: {detail}")
+              raise SystemExit(f"Worker HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:1000]}")
           if not result.get("completed"):
               raise SystemExit("El Worker no confirmó el cierre del episodio.")
           print("Episodio confirmado como renderizado:", result.get("id"))
