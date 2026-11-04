@@ -71,34 +71,39 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
     else:
         image_input = frame
 
-    print(f"GENERATING_PART={idx}/12", flush=True)
-    result = client.predict(
-        input_image=handle_file(str(image_input)),
-        prompt=prompt + " Coco debe conservar su identidad y aspecto de la imagen de referencia: monito café, gorra roja brillante, traje espacial blanco y mochila cohete plateada con detalles rojos. Sin texto ni marcas de agua. Movimiento natural, sin deformaciones.",
-        steps=4,
-        negative_prompt="low quality, flicker, jitter, deformed face, extra limbs, text, watermark, changed clothes, missing red cap, missing rocket backpack, duplicate character",
-        duration_seconds=5.0,
-        guidance_scale=1,
-        guidance_scale_2=1,
-        seed=4100 + idx,
-        randomize_seed=False,
-        api_name="/generate_video",
-    )
-    video_path = result[0] if isinstance(result, (tuple, list)) else result
-    if isinstance(video_path, dict):
-        video_path = video_path.get("path") or video_path.get("name")
-    if not video_path or not Path(video_path).is_file():
-        raise RuntimeError(f"Wan 2.2 no devolvió un video válido para la parte {idx}.")
-    shutil.copy2(video_path, raw)
+    # Reuse completed scenes from the previous run instead of spending GPU again.
+    if normalized.is_file() and ffprobe_duration(normalized) >= 4.85:
+        print(f"PART_REUSED={idx}/12", flush=True)
+    else:
+        print(f"GENERATING_PART={idx}/12", flush=True)
+        result = client.predict(
+            input_image=handle_file(str(image_input)),
+            prompt=prompt + " Coco debe conservar su identidad y aspecto de la imagen de referencia: monito café, gorra roja brillante, traje espacial blanco y mochila cohete plateada con detalles rojos. Sin texto ni marcas de agua. Movimiento natural, sin deformaciones.",
+            steps=4,
+            negative_prompt="low quality, flicker, jitter, deformed face, extra limbs, text, watermark, changed clothes, missing red cap, missing rocket backpack, duplicate character",
+            duration_seconds=5.0,
+            guidance_scale=1,
+            guidance_scale_2=1,
+            seed=4100 + idx,
+            randomize_seed=False,
+            api_name="/generate_video",
+        )
+        video_path = result[0] if isinstance(result, (tuple, list)) else result
+        if isinstance(video_path, dict):
+            video_path = video_path.get("path") or video_path.get("name")
+        if not video_path or not Path(video_path).is_file():
+            raise RuntimeError(f"Wan 2.2 no devolvió un video válido para la parte {idx}.")
+        shutil.copy2(video_path, raw)
 
-    # Standardize every part to portrait 9:16, exactly five seconds, 30 fps.
-    run([
-        "ffmpeg", "-y", "-i", str(raw), "-t", "5",
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,tpad=stop_mode=clone:stop_duration=5,trim=duration=5,setsar=1,format=yuv420p",
-        "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-        str(normalized)
-    ])
-    # Extract last frame to carry character pose and scene continuity forward.
+        # Standardize every new part to portrait 9:16, exactly five seconds, 30 fps.
+        run([
+            "ffmpeg", "-y", "-i", str(raw), "-t", "5",
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,tpad=stop_mode=clone:stop_duration=5,trim=duration=5,setsar=1,format=yuv420p",
+            "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            str(normalized)
+        ])
+
+    # Always rebuild the continuity reference from the latest completed scene.
     run(["ffmpeg", "-y", "-sseof", "-0.15", "-i", str(normalized), "-frames:v", "1", "-q:v", "2", str(frame)])
     print(f"PART_READY={idx}", flush=True)
 
