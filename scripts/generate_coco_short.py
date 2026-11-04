@@ -94,7 +94,7 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
     # Standardize every part to portrait 9:16, exactly five seconds, 30 fps.
     run([
         "ffmpeg", "-y", "-i", str(raw), "-t", "5",
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1,format=yuv420p",
+        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,tpad=stop_mode=clone:stop_duration=5,trim=duration=5,setsar=1,format=yuv420p",
         "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         str(normalized)
     ])
