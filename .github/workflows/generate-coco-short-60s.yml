@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/generate-coco-short-60s.yml'
   schedule:
-    - cron: "30 6 * * *"
+    - cron: "30 6,14,22 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -33,12 +33,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
-          PREVIOUS_RUN_ID="$(gh run list --workflow generate-coco-short-60s.yml --branch main --json databaseId,status --limit 20 | jq -r --arg current "$GITHUB_RUN_ID" '[.[] | select((.databaseId | tostring) != $current and .status == "completed")][0].databaseId // empty')"
+          PREVIOUS_RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --jq '[.artifacts[] | select(.name == "Coco-Short-60s-build" and .expired == false and .workflow_run.id != ('"$GITHUB_RUN_ID"'))] | sort_by(.created_at) | last | .workflow_run.id // empty')"
           if [ -n "$PREVIOUS_RUN_ID" ]; then
-            echo "Recuperando escenas del intento $PREVIOUS_RUN_ID"
-            gh run download "$PREVIOUS_RUN_ID" --name Coco-Short-60s-build --dir output || echo "::warning::No se pudo recuperar el artefacto anterior; se intentará continuar con los archivos disponibles."
+            echo "Recuperando el último artefacto válido del intento $PREVIOUS_RUN_ID"
+            gh run download "$PREVIOUS_RUN_ID" --name Coco-Short-60s-build --dir output
           else
-            echo "No hay un intento anterior con artefactos."
+            echo "No hay artefactos anteriores válidos para recuperar."
           fi
           mkdir -p output/parts
           find output/parts -maxdepth 1 -name 'part-*.mp4' -type f -printf '%f\n' | sort || true
