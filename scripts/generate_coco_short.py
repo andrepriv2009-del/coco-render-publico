@@ -145,7 +145,7 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
             if is_quota:
                 print(f"QUOTA_PAUSE_AFTER_PART={idx - 1}/12", flush=True)
                 print(f"QUOTA_MESSAGE={message}", flush=True)
-                retry_match = re.search(r"try again in\\s+(\\d+):(\\d{2}):(\\d{2})", message, re.IGNORECASE)
+                retry_match = re.search(r"try again in\s+(\d+):(\d{2}):(\d{2})", message, re.IGNORECASE)
                 retry_after = None
                 if retry_match:
                     retry_after = int(retry_match.group(1)) * 3600 + int(retry_match.group(2)) * 60 + int(retry_match.group(3))
