@@ -260,11 +260,63 @@ with wave.open(str(music_wav), "wb") as wf:
     wf.setframerate(sr)
     wf.writeframes((stereo * 32767).astype("<i2").tobytes())
 
-# Burn Spanish subtitles, mix narration with original background music, and encode final MP4.
-subtitle_filter = "subtitles=output/subtitles.srt:force_style='FontName=DejaVu Sans,FontSize=22,Outline=2,Shadow=1,Alignment=2,MarginV=120'"
+# Compose original, synchronized sound effects (star chimes, rocket whooshes, comet pass, ice sparkle).
+sfx = np.zeros_like(t)
+rng = np.random.default_rng(4200)
+
+def add_chime(start, duration, start_hz, end_hz, amplitude=0.07):
+    first = int(start * sr)
+    count = min(int(duration * sr), len(sfx) - first)
+    if count <= 0:
+        return
+    local = np.arange(count, dtype=np.float32) / sr
+    phase = 2 * np.pi * (start_hz * local + 0.5 * ((end_hz - start_hz) / duration) * local * local)
+    envelope = np.sin(np.pi * local / duration) ** 2
+    tone = np.sin(phase) + 0.28 * np.sin(phase * 2.01) + 0.12 * np.sin(phase * 3.98)
+    sfx[first:first + count] += amplitude * envelope * tone / 1.4
+
+def add_whoosh(start, duration, amplitude=0.055):
+    first = int(start * sr)
+    count = min(int(duration * sr), len(sfx) - first)
+    if count <= 0:
+        return
+    local = np.arange(count, dtype=np.float32) / sr
+    noise = rng.normal(0, 1, count).astype(np.float32)
+    highpass = np.concatenate(([0.0], np.diff(noise)))
+    envelope = np.sin(np.pi * local / duration) ** 2
+    sweep = np.sin(2 * np.pi * (90 * local + 420 * local * local))
+    sfx[first:first + count] += amplitude * envelope * (0.75 * highpass + 0.25 * sweep)
+
+for event in [
+    (0.8, 0.55, 880, 1320, 0.055),
+    (6.4, 0.65, 1040, 1560, 0.045),
+    (10.8, 1.6, 0, 0, 0),
+    (20.8, 1.1, 0, 0, 0),
+    (29.2, 1.0, 0, 0, 0),
+    (38.0, 0.8, 1320, 1760, 0.05),
+    (45.0, 0.9, 740, 1480, 0.065),
+    (51.0, 1.5, 0, 0, 0),
+    (56.2, 0.8, 988, 1568, 0.05),
+]:
+    start, duration, low, high, amp = event
+    if low:
+        add_chime(start, duration, low, high, amp)
+    else:
+        add_whoosh(start, duration, 0.05)
+
+sfx_stereo = np.stack([sfx, sfx], axis=1)
+sfx_wav = OUT / "sound-effects-original.wav"
+with wave.open(str(sfx_wav), "wb") as wf:
+    wf.setnchannels(2)
+    wf.setsampwidth(2)
+    wf.setframerate(sr)
+    wf.writeframes((np.clip(sfx_stereo, -0.3, 0.3) * 32767).astype("<i2").tobytes())
+
+# Burn Spanish subtitles, mix narration, original music and sound effects, then encode final MP4.
+subtitle_filter = "subtitles=output/subtitles.srt:force_style='FontName=DejaVu Sans,FontSize=30,Outline=2,Shadow=1,Alignment=2,MarginV=140'"
 run([
-    "ffmpeg", "-y", "-i", str(silent_video), "-i", str(voice_wav), "-i", str(music_wav),
-    "-filter_complex", f"[0:v]{subtitle_filter}[v];[1:a]volume=1.0[voice];[2:a]volume=0.18[music];[voice][music]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
+    "ffmpeg", "-y", "-i", str(silent_video), "-i", str(voice_wav), "-i", str(music_wav), "-i", str(sfx_wav),
+    "-filter_complex", f"[0:v]{subtitle_filter}[v];[1:a]volume=1.0[voice];[2:a]volume=0.18[music];[3:a]volume=0.35[sfx];[voice][music][sfx]amix=inputs=3:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
     "-map", "[v]", "-map", "[a]", "-t", "60",
     "-c:v", "libx264", "-preset", "medium", "-crf", "19",
     "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
