@@ -34,6 +34,8 @@ jobs:
           ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
           python -m pip install --upgrade pip
           python -m pip install numpy pillow edge-tts
+      - name: Validar sintaxis del pipeline
+        run: python -m py_compile scripts/generate_daily_coco.py video/render_coco.py
       - name: Generar episodio 3D, voz mexicana, música y subtítulos
         env:
           PYTHONUNBUFFERED: "1"
