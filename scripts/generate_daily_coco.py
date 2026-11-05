@@ -7,55 +7,41 @@ OUT=Path("output"); FRAMES=OUT/"frames"; AUDIO=OUT/"audio"
 OUT.mkdir(exist_ok=True); FRAMES.mkdir(exist_ok=True); AUDIO.mkdir(exist_ok=True)
 W,H=1080,1920; FPS=30; SLOT=5
 DAY=datetime.now(timezone.utc).strftime("%Y-%m-%d")
-STORIES=[
-("La brújula de las estrellas",[
-"¡Tripulación, Coco encontró una brújula que apunta a una estrella perdida!",
-"Pero la brújula solo funciona cuando alguien dice la verdad.",
-"Coco revisa su mochila y encuentra una pequeña pista brillante.",
-"Una nube espacial cubre el camino y todo queda oscuro.",
-"Entonces Coco enciende su cohete y descubre un sendero secreto.",
-"Al final del sendero hay un planeta lleno de flores luminosas.",
-"Una estrella pequeñita está escondida entre las flores.",
-"Coco la escucha: tiene miedo de volar sola.",
-"Le enseña que ser valiente también significa pedir ayuda.",
-"Juntos suben despacito por el cielo violeta.",
-"La estrella encuentra su lugar y enciende todo el firmamento.",
-"¡Misión cumplida! Coco descubre que ayudar ilumina el universo."
-]),
-("El planeta que estornudaba",[
-"¡Atención! Coco recibe una señal de un planeta que no deja de estornudar.",
-"Cada estornudo lanza burbujas gigantes por el espacio.",
-"Coco se acerca con cuidado y activa su casco protector.",
-"Un remolino de burbujas lo hace girar como trompo.",
-"Con paciencia, descubre que el planeta tiene polvo de cometa.",
-"Coco prepara un ventilador con su mochila cohete.",
-"Pero necesita encontrar la flor espacial que limpia el aire.",
-"Una lucecita lo guía hasta un pequeño cráter.",
-"Allí crece una flor azul que brilla con cada soplido.",
-"Coco la coloca cerca del planeta y espera.",
-"¡Achís! El planeta da su último estornudo y vuelve a sonreír.",
-"Coco aprende que cuidar el espacio también es cuidar a los demás."
-]),
-("El mapa invisible",[
-"Hoy Coco encuentra un mapa que solo aparece bajo la luz de las estrellas.",
-"Una ruta brillante señala un lugar que nadie ha visitado.",
-"Coco ajusta su gorra roja y despega con emoción.",
-"El mapa cambia de forma y lo lleva entre asteroides.",
-"Una roca enorme bloquea el camino.",
-"Coco observa, piensa y encuentra un túnel seguro.",
-"Al otro lado descubre una puerta hecha de luz.",
-"El mapa revela que la llave es una sonrisa sincera.",
-"Coco sonríe y la puerta se abre lentamente.",
-"Detrás hay un jardín secreto flotando en el espacio.",
-"Las estrellas del jardín iluminan el camino de regreso.",
-"¡Qué aventura! Coco guarda el mapa para ayudar a otro explorador."
-])
+# 30 combinaciones narrativas deterministas: evita repetir cada tres días.
+MYSTERIES=[
+("La campana lunar","una campana que suena debajo del polvo lunar","un pequeño robot afinador","una lluvia de meteoritos","escuchar con atención"),
+("El faro de cristal","un faro apagado en un planeta de hielo","una luciérnaga espacial","un puente de cristales","trabajar en equipo"),
+("El bosque flotante","un bosque de árboles que viaja sin rumbo","una tortuga astronauta","una corriente de viento solar","cuidar la naturaleza"),
+("El tren de cometas","un tren de cometas que perdió su estación","un zorro piloto","un cruce de caminos luminosos","mantener la calma"),
+("La ciudad diminuta","una ciudad pequeñita escondida en un asteroide","una inventora marciana","una puerta demasiado pesada","ayudar sin rendirse"),
+("El jardín de colores","un jardín espacial que está perdiendo sus colores","un colibrí galáctico","una nube que absorbe la luz","compartir lo que tenemos")
 ]
+DESTINATIONS=["el valle de los anillos","la estación Arcoíris","el cráter de los susurros","el océano de estrellas","la montaña de polvo azul"]
+def make_story(mystery, destination, serial):
+ name, clue, friend, obstacle, lesson=mystery
+ title=f"{name}: misión {serial:02d}"
+ lines=[
+ f"¡Alerta espacial! Coco recibe una señal sobre {clue}.",
+ f"La señal marca una ruta hacia {destination}.",
+ "Coco ajusta su gorra roja y revisa su mochila cohete.",
+ f"Al llegar, conoce a {friend}, que necesita una mano.",
+ f"Pero {obstacle} bloquea el camino y la misión parece difícil.",
+ "Coco respira profundo y observa cada detalle con cuidado.",
+ "Encuentra una pista brillante escondida junto a una roca.",
+ "La pista muestra cómo avanzar sin poner a nadie en peligro.",
+ f"Coco y su nuevo amigo resuelven juntos el misterio de {clue}.",
+ "Una luz cálida recorre el lugar y todo vuelve a la calma.",
+ "Su amigo celebra y acompaña a Coco de regreso a casa.",
+ f"¡Misión cumplida! Hoy Coco aprende a {lesson}."
+ ]
+ return (title,lines)
+STORIES=[make_story(MYSTERIES[i%len(MYSTERIES)],DESTINATIONS[i//len(MYSTERIES)],i+1) for i in range(30)]
 idx=(int(DAY.replace("-","")))%len(STORIES)
 title, lines=STORIES[idx]
+
 ref=Image.open("coco-referencia.webp").convert("RGBA")
 font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-font=ImageFont.truetype(font_path,52); small=ImageFont.truetype(font_path,34)
+font=ImageFont.truetype(font_path,40); small=ImageFont.truetype(font_path,30)
 def gradient(top,bottom):
  im=Image.new("RGB",(W,H)); p=im.load()
  for y in range(H):
@@ -72,18 +58,18 @@ for i,line in enumerate(lines):
  for _ in range(95):
   x=random.randrange(W); y=random.randrange(H); r=random.choice([2,3,4,6])
   d.ellipse((x-r,y-r,x+r,y+r),fill=(210,230,255,random.randrange(90,230)))
- px=850 if i%2==0 else 220; py=520+(i%3)*90
+ px=[850,220,780,300,900,180][i%6]; py=420+(i%4)*105
  d.ellipse((px-125,py-125,px+125,py+125),fill=(70,135,220,180),outline=(190,225,255,230),width=8)
  d.ellipse((px-165,py-42,px+165,py+42),outline=(190,220,255,180),width=9)
- character=fit(ref.copy(),(760,900))
+ character=fit(ref.copy(),([650,720,590,760][i%4], [780,860,700,900][i%4]))
  panel=Image.new("RGBA",(850,1000),(255,255,255,18))
  canvas.alpha_composite(panel,(115,650))
- canvas.alpha_composite(character,((W-character.width)//2,700+(i%2)*25))
+ cx=[130,430,80,350,210,470][i%6]; cy=[760,690,820,730,660,780][i%6]\n canvas.alpha_composite(character,(cx,cy))
  d=ImageDraw.Draw(canvas)
  d.rounded_rectangle((55,65,1025,230),radius=38,fill=(5,10,35,190),outline=(110,190,255,190),width=4)
  d.text((90,105),f"COCO • AVENTURA {i+1:02d}/12",font=small,fill=(120,225,255))
- words=line.split(); headline=" ".join(words[:8])
- d.rounded_rectangle((55,1510,1025,1845),radius=42,fill=(4,9,30,220),outline=(255,255,255,100),width=3)
+ headline=line
+ d.rounded_rectangle((55,1435,1025,1850),radius=42,fill=(4,9,30,225),outline=(255,255,255,120),width=3)
  wrapped=[]; cur=""
  for word in headline.split():
   test=(cur+" "+word).strip()
@@ -129,5 +115,5 @@ probe=json.loads(subprocess.check_output(["ffprobe","-v","error","-show_streams"
 v=next(s for s in probe["streams"] if s["codec_type"]=="video"); a=next(s for s in probe["streams"] if s["codec_type"]=="audio")
 dur=float(probe["format"]["duration"])
 assert 59.8<=dur<=60.2 and v["width"]==1080 and v["height"]==1920 and a
-(OUT/"production-report.json").write_text(json.dumps({"date":DAY,"title":title,"duration":dur,"resolution":"1080x1920","fps":v["avg_frame_rate"],"voice":"es-MX-DaliaNeural","music":"original synthesized","captions":"scene text burned into visuals + separate SRT","status":"verified"},ensure_ascii=False,indent=2))
+(OUT/"production-report.json").write_text(json.dumps({"date":DAY,"title":title,"duration":dur,"resolution":"1080x1920","fps":v["avg_frame_rate"],"voice":"es-MX-DaliaNeural","music":"original synthesized","captions":"complete scene text burned into visuals + separate SRT","story_library":len(STORIES),"visual_variation":"30 story combinations; varied character scale and position; varied backgrounds","status":"verified"},ensure_ascii=False,indent=2))
 print(f"DAILY_VIDEO_READY={final} duration={dur} title={title}")
