@@ -1,0 +1,45 @@
+name: Coco — Producción diaria automática
+on:
+  schedule:
+    # 00:30 hora de Nuevo León (UTC-6)
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: coco-daily-production
+  cancel-in-progress: false
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+      - name: Descargar referencia oficial de Coco
+        env:
+          GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_READ_TOKEN" || { echo "::error::Falta el secreto GH_READ_TOKEN"; exit 1; }
+          curl --fail --silent --show-error -H "Authorization: Bearer $GH_READ_TOKEN" -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" -o coco-referencia.webp
+          test -s coco-referencia.webp
+      - name: Instalar herramientas gratuitas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg libass9 fonts-dejavu-core
+          python -m pip install --upgrade pip
+          python -m pip install pillow numpy edge-tts
+      - name: Generar episodio diario, voz, música y subtítulos
+        run: python scripts/generate_daily_coco.py
+      - name: Guardar MP4 y reporte
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coco-video-diario-${{ github.run_number }}
+          path: |
+            output/Coco-Short-60s-FINAL.mp4
+            output/subtitles.srt
+            output/production-report.json
+          if-no-files-found: error
+          retention-days: 30
