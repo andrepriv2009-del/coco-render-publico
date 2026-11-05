@@ -19,7 +19,7 @@ permissions:
   contents: read
 concurrency:
   group: coco-short-60s
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   render-short:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'push' || inputs.confirm == 'GENERAR' }}
@@ -59,10 +59,11 @@ jobs:
             "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" \
             -o coco-referencia.webp
           test -s coco-referencia.webp
-      - name: Instalar FFmpeg y fuentes
+      - name: Verificar FFmpeg y fuentes del runner
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          command -v ffmpeg
+          ffmpeg -version | head -n 1
+          fc-match "DejaVu Sans" >/dev/null
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
