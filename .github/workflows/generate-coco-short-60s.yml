@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   render-short:
-    if: ${{ github.event_name == 'schedule' || inputs.confirm == 'GENERAR' }}
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'push' || inputs.confirm == 'GENERAR' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
