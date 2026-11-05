@@ -138,27 +138,33 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
     else:
         print(f"GENERATING_PART={idx}/12", flush=True)
         try:
+            # Gradio API arguments must match app.py's ui_inputs order.
             result = client.predict(
-                input_image=handle_file(str(image_input)),
-                prompt=prompt + " Coco debe conservar su identidad y aspecto de la imagen de referencia: monito café, gorra roja brillante, traje espacial blanco y mochila cohete plateada con detalles rojos. Sin texto ni marcas de agua. Movimiento natural, sin deformaciones.",
-                steps=4,
-                negative_prompt="low quality, flicker, jitter, deformed face, extra limbs, text, watermark, changed clothes, missing red cap, missing rocket backpack, duplicate character",
-                duration_seconds=5.0,
-                guidance_scale=1,
-                guidance_scale_2=1,
-                seed=4100 + idx,
-                randomize_seed=False,
+                handle_file(str(image_input)),
+                prompt + " Coco debe conservar su identidad y aspecto de la imagen de referencia: monito café, gorra roja brillante, traje espacial blanco y mochila cohete plateada con detalles rojos. Sin texto ni marcas de agua. Movimiento natural, sin deformaciones.",
+                4,
+                "low quality, flicker, jitter, deformed face, extra limbs, text, watermark, changed clothes, missing red cap, missing rocket backpack, duplicate character",
+                5.0,
+                1,
+                1,
+                4100 + idx,
+                False,
                 api_name="/generate_video",
             )
         except Exception as exc:
             # A free ZeroGPU quota limit is an expected pause, not a broken render.
             message = str(exc)
             lower_message = message.lower()
-            is_quota = ("quota" in lower_message and ("zerogpu" in lower_message or "gpu" in lower_message or "free" in lower_message))
+            retry_match = re.search(r"try again in\\s+(\\d+):(\\d{2}):(\\d{2})", message, re.IGNORECASE)
+            is_quota = (
+                retry_match is not None
+                or "zerogpu quota" in lower_message
+                or ("quota" in lower_message and ("gpu" in lower_message or "free" in lower_message))
+                or ("requested" in lower_message and "left" in lower_message)
+            )
             if is_quota:
                 print(f"QUOTA_PAUSE_AFTER_PART={idx - 1}/12", flush=True)
                 print(f"QUOTA_MESSAGE={message}", flush=True)
-                retry_match = re.search(r"try again in\s+(\d+):(\d{2}):(\d{2})", message, re.IGNORECASE)
                 retry_after = None
                 if retry_match:
                     retry_after = int(retry_match.group(1)) * 3600 + int(retry_match.group(2)) * 60 + int(retry_match.group(3))
@@ -221,7 +227,7 @@ for idx, (_, narration) in enumerate(scenes, start=1):
         m = (seconds % 3600) // 60
         s = seconds % 60
         return f"{h:02}:{m:02}:{s:02},000"
-    srt_lines.append(f"{idx}\n{stamp(start)} --> {stamp(end - 1)}\n{narration}\n")
+    srt_lines.append(f"{idx}\n{stamp(start)} --> {stamp(end)}\n{narration}\n")
 (OUT / "subtitles.srt").write_text("\n".join(srt_lines), encoding="utf-8")
 
 audio_concat = OUT / "voice-concat.txt"
