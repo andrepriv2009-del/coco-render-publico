@@ -74,6 +74,7 @@ jobs:
       - name: Generar escenas pendientes y ensamblar Short de 60 segundos
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          WAN_SPACE_URL: https://zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space
           PYTHONUNBUFFERED: "1"
         run: |
           python scripts/generate_coco_short.py
