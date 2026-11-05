@@ -10,13 +10,12 @@ scene.render.engine="BLENDER_EEVEE"
 scene.eevee.use_gtao=True
 scene.eevee.gtao_distance=3
 scene.eevee.gtao_factor=1.35
-scene.render.resolution_x=720; scene.render.resolution_y=1280; scene.render.resolution_percentage=60
-# Fast-render profile: render internally at 432x768 with fewer samples,
-# then upscale once in FFmpeg. Keep all 720 frames so the 60-second
-# animation timing and character movement remain unchanged.
+scene.render.resolution_x=720; scene.render.resolution_y=1280; scene.render.resolution_percentage=75
+# Free CPU-render profile: 540x960 at 15 fps, then upscale to 1080x1920/30 fps.
+# Motion keyframes are stretched below so the animation still lasts exactly 60 seconds.
 if hasattr(scene.eevee, "taa_render_samples"):
  scene.eevee.taa_render_samples=8
-scene.render.fps=12; scene.frame_start=1; scene.frame_end=720
+scene.render.fps=15; scene.frame_start=1; scene.frame_end=900
 scene.render.image_settings.file_format="FFMPEG"
 scene.render.ffmpeg.format="MPEG4"
 scene.render.ffmpeg.codec="H264"
@@ -56,8 +55,8 @@ def cyl(name,loc,radius,depth,material,rot=(0,0,0)):
  bpy.ops.mesh.primitive_cylinder_add(vertices=32,radius=radius,depth=depth,location=loc,rotation=rot)
  o=bpy.context.object;o.name=name;o.data.materials.append(material);bpy.ops.object.shade_smooth();return o
 # Camera and cinematic lighting
-bpy.ops.object.camera_add(location=(0,-20,0))
-cam=bpy.context.object; cam.rotation_euler=(radians(90),0,0); cam.data.type="ORTHO";cam.data.ortho_scale=9.2;scene.camera=cam
+bpy.ops.object.camera_add(location=(4,-20,1.0))
+cam=bpy.context.object; cam.rotation_euler=(Vector((0,0,0))-cam.location).to_track_quat("-Z","Y").to_euler(); cam.data.type="ORTHO";cam.data.ortho_scale=9.2;scene.camera=cam
 def area(name,loc,power,color,size):
  bpy.ops.object.light_add(type="AREA",location=loc); l=bpy.context.object;l.name=name;l.data.energy=power;l.data.color=color;l.data.shape="DISK";l.data.size=size
  l.rotation_euler=(Vector((0,0,0))-l.location).to_track_quat("-Z","Y").to_euler()
@@ -229,7 +228,7 @@ def scene_text(name,body,location,size,material):
     obj.data.materials.append(material)
     return obj
 scene_text("Título del episodio",episode_title,(0,-1.35,3.55),.23,gold)
-scene_text("Nombre del invitado","CON "+guest_name.upper(),(2.05,-1.45,1.15),.17,white)
+scene_text("Nombre del invitado","CON "+guest_name.upper()[:18],(.85,-1.45,1.15),.12,white)
 guest_root=bpy.data.objects.new("INVITADO DEL EPISODIO — "+guest_name,None)
 scene.collection.objects.link(guest_root)
 guest_root.location=(2.05,-.55,-.65)
@@ -321,6 +320,16 @@ if guest_root.animation_data and guest_root.animation_data.action:
     for fc in guest_root.animation_data.action.fcurves:
         for key in fc.keyframe_points:
             key.interpolation="BEZIER"
+
+# Stretch all keyed actions from the original 12 fps timeline to 15 fps,
+# preserving the same 60-second motion beats at the higher render rate.
+for action in bpy.data.actions:
+    for fcurve in action.fcurves:
+        for key in fcurve.keyframe_points:
+            key.co.x *= 1.25
+            key.handle_left.x *= 1.25
+            key.handle_right.x *= 1.25
+        fcurve.update()
 
 scene.render.filepath=OUT+"/coco-base.mp4"
 scene.frame_set(1)
