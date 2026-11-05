@@ -1,127 +1,294 @@
-import os, subprocess, json, math, wave, random
-from pathlib import Path
+import json
+import math
+import os
+import subprocess
+import wave
 from datetime import datetime, timezone
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-OUT=Path("output"); FRAMES=OUT/"frames"; AUDIO=OUT/"audio"
-OUT.mkdir(exist_ok=True); FRAMES.mkdir(exist_ok=True); AUDIO.mkdir(exist_ok=True)
-W,H=1080,1920; FPS=30; SLOT=5
-DAY=datetime.now(timezone.utc).strftime("%Y-%m-%d")
-# 30 combinaciones narrativas deterministas: evita repetir cada tres días.
-MYSTERIES=[
-("La campana lunar","una campana que suena debajo del polvo lunar","un pequeño robot afinador","una lluvia de meteoritos","escuchar con atención"),
-("El faro de cristal","un faro apagado en un planeta de hielo","una luciérnaga espacial","un puente de cristales","trabajar en equipo"),
-("El bosque flotante","un bosque de árboles que viaja sin rumbo","una tortuga astronauta","una corriente de viento solar","cuidar la naturaleza"),
-("El tren de cometas","un tren de cometas que perdió su estación","un zorro piloto","un cruce de caminos luminosos","mantener la calma"),
-("La ciudad diminuta","una ciudad pequeñita escondida en un asteroide","una inventora marciana","una puerta demasiado pesada","ayudar sin rendirse"),
-("El jardín de colores","un jardín espacial que está perdiendo sus colores","un colibrí galáctico","una nube que absorbe la luz","compartir lo que tenemos")
-]
-DESTINATIONS=["el valle de los anillos","la estación Arcoíris","el cráter de los susurros","el océano de estrellas","la montaña de polvo azul"]
-def make_story(mystery, destination, serial):
- name, clue, friend, obstacle, lesson=mystery
- title=f"{name}: misión {serial:02d}"
- lines=[
- f"¡Alerta espacial! Coco recibe una señal sobre {clue}.",
- f"La señal marca una ruta hacia {destination}.",
- "Coco ajusta su gorra roja y revisa su mochila cohete.",
- f"Al llegar, conoce a {friend}, que necesita una mano.",
- f"Pero {obstacle} bloquea el camino y la misión parece difícil.",
- "Coco respira profundo y observa cada detalle con cuidado.",
- "Encuentra una pista brillante escondida junto a una roca.",
- "La pista muestra cómo avanzar sin poner a nadie en peligro.",
- f"Coco y su nuevo amigo resuelven juntos el misterio de {clue}.",
- "Una luz cálida recorre el lugar y todo vuelve a la calma.",
- "Su amigo celebra y acompaña a Coco de regreso a casa.",
- f"¡Misión cumplida! Hoy Coco aprende a {lesson}."
- ]
- return (title,lines)
-STORIES=[make_story(MYSTERIES[i%len(MYSTERIES)],DESTINATIONS[i//len(MYSTERIES)],i+1) for i in range(30)]
-idx=(int(DAY.replace("-","")))%len(STORIES)
-title, lines=STORIES[idx]
+from pathlib import Path
+from fractions import Fraction
 
-ref=Image.open("coco-referencia.webp").convert("RGBA")
-font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-font=ImageFont.truetype(font_path,40); small=ImageFont.truetype(font_path,30)
-def gradient(top,bottom):
- im=Image.new("RGB",(W,H)); p=im.load()
- for y in range(H):
-  t=y/(H-1)
-  c=tuple(int(top[k]*(1-t)+bottom[k]*t) for k in range(3))
-  for x in range(W): p[x,y]=c
- return im
-pal=[((8,15,48),(45,20,92)),((7,35,65),(15,95,115)),((35,12,58),(105,35,95)),((9,28,62),(22,65,120))]
-def fit(im,size):
- im.thumbnail(size,Image.Resampling.LANCZOS); return im
-for i,line in enumerate(lines):
- top,bottom=pal[i%len(pal)]; canvas=gradient(top,bottom).convert("RGBA"); d=ImageDraw.Draw(canvas)
- random.seed(i+int(DAY[-2:]))
- for _ in range(95):
-  x=random.randrange(W); y=random.randrange(H); r=random.choice([2,3,4,6])
-  d.ellipse((x-r,y-r,x+r,y+r),fill=(210,230,255,random.randrange(90,230)))
- px=[850,220,780,300,900,180][i%6]; py=420+(i%4)*105
- d.ellipse((px-125,py-125,px+125,py+125),fill=(70,135,220,180),outline=(190,225,255,230),width=8)
- d.ellipse((px-165,py-42,px+165,py+42),outline=(190,220,255,180),width=9)
- character=fit(ref.copy(),([650,720,590,760][i%4], [780,860,700,900][i%4]))
- panel=Image.new("RGBA",(850,1000),(255,255,255,18))
- canvas.alpha_composite(panel,(115,650))
- cx=[130,430,80,350,210,470][i%6]; cy=[760,690,820,730,660,780][i%6]
- canvas.alpha_composite(character,(cx,cy))
- d=ImageDraw.Draw(canvas)
- d.rounded_rectangle((55,65,1025,230),radius=38,fill=(5,10,35,190),outline=(110,190,255,190),width=4)
- d.text((90,105),f"COCO • AVENTURA {i+1:02d}/12",font=small,fill=(120,225,255))
- headline=line
- d.rounded_rectangle((55,1435,1025,1850),radius=42,fill=(4,9,30,225),outline=(255,255,255,120),width=3)
- wrapped=[]; cur=""
- chosen=font
- for sz in (40,38,36,34,32,30):
-  chosen=ImageFont.truetype(font_path,sz); wrapped=[]; cur=""
-  for word in headline.split():
-   test=(cur+" "+word).strip()
-   if d.textbbox((0,0),test,font=chosen)[2] > 870:
-    if cur: wrapped.append(cur)
-    cur=word
-   else: cur=test
-  if cur: wrapped.append(cur)
-  if len(wrapped)<=4: break
- if len(wrapped)>4:
-  raise ValueError(f"El texto de la escena {i+1} no cabe completo en el panel; se cancela la producción para evitar subtítulos cortados: {headline}")
- yy=1480; line_h=76 if chosen.size>=36 else 68
- for part in wrapped:
-  d.text((95,yy),part,font=chosen,fill="white",stroke_width=2,stroke_fill=(10,20,55)); yy+=line_h
- d.text((90,1790),"COCO, EL MONITO ESPACIAL",font=small,fill=(255,205,90))
- canvas.convert("RGB").save(FRAMES/f"scene-{i+1:02d}.jpg",quality=94)
-clips=[]
-for i in range(12):
- src=FRAMES/f"scene-{i+1:02d}.jpg"; dst=OUT/f"clip-{i+1:02d}.mp4"
- subprocess.run(["ffmpeg","-y","-loop","1","-i",str(src),"-t","5","-vf","zoompan=z='min(zoom+0.00035,1.055)':d=150:s=1080x1920:fps=30,format=yuv420p","-an","-c:v","libx264","-preset","veryfast","-crf","20",str(dst)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
- clips.append(dst)
-concat=OUT/"concat.txt"; concat.write_text("".join(f"file '{p.resolve()}'\n" for p in clips))
-silent=OUT/"silent.mp4"
-subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(silent)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-for i,line in enumerate(lines):
- subprocess.run(["edge-tts","--voice","es-MX-DaliaNeural","--rate=+12%","--text",line,"--write-media",str(AUDIO/f"v{i:02d}.mp3")],check=True)
- subprocess.run(["ffmpeg","-y","-i",str(AUDIO/f"v{i:02d}.mp3"),"-af","apad","-t","5","-ar","44100","-ac","2",str(AUDIO/f"v{i:02d}.wav")],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-lst=OUT/"voice-list.txt"; lst.write_text("".join(f"file '{(AUDIO/f'v{i:02d}.wav').resolve()}'\n" for i in range(12)))
-voice=OUT/"voice.wav"
-subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i",str(lst),"-t","60",str(voice)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-sr=44100; t=np.arange(sr*60,dtype=np.float32)/sr; music=np.zeros_like(t)
-for f in (220.0,261.63,329.63,392.0): music += np.sin(2*np.pi*f*t).astype(np.float32)*0.012
-env=np.minimum(t/2,1)*np.minimum((60-t)/2,1); music*=env
-st=np.stack([music,music],axis=1)
-with wave.open(str(OUT/"music.wav"),"wb") as f:
- f.setnchannels(2); f.setsampwidth(2); f.setframerate(sr); f.writeframes((np.clip(st,-1,1)*32767).astype("<i2").tobytes())
-srt=[]
-for i,line in enumerate(lines):
- def stamp(s): return f"00:{s//60:02d}:{s%60:02d},000"
- srt.append(f"{i+1}\n{stamp(i*5)} --> {stamp((i+1)*5)}\n{line}\n")
-(OUT/"subtitles.srt").write_text("\n".join(srt),encoding="utf-8")
-final=OUT/"Coco-Short-60s-FINAL.mp4"
-subprocess.run(["ffmpeg","-y","-i",str(silent),"-i",str(voice),"-i",str(OUT/"music.wav"),
- "-filter_complex","[1:a]volume=1.0[v];[2:a]volume=0.16[m];[v][m]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
- "-map","0:v","-map","[a]","-t","60","-metadata",f"title={title}","-metadata","comment=Coco, el Monito Espacial | episodio diario","-c:v","libx264","-preset","medium","-crf","19","-c:a","aac","-b:a","192k","-pix_fmt","yuv420p","-movflags","+faststart",str(final)],check=True)
-probe=json.loads(subprocess.check_output(["ffprobe","-v","error","-show_streams","-show_format","-of","json",str(final)],text=True))
-v=next(s for s in probe["streams"] if s["codec_type"]=="video"); a=next(s for s in probe["streams"] if s["codec_type"]=="audio")
-dur=float(probe["format"]["duration"])
-assert 59.8<=dur<=60.2 and v["width"]==1080 and v["height"]==1920 and a
-(OUT/"production-report.json").write_text(json.dumps({"date":DAY,"title":title,"duration":dur,"resolution":"1080x1920","fps":v["avg_frame_rate"],"voice":"es-MX-DaliaNeural","music":"original synthesized","captions":"complete scene text burned into visuals + separate SRT","story_library":len(STORIES),"visual_variation":"30 story combinations; varied character scale and position; varied backgrounds","status":"verified"},ensure_ascii=False,indent=2))
-print(f"DAILY_VIDEO_READY={final} duration={dur} title={title}")
+import numpy as np
+from PIL import Image
+
+OUT = Path("output")
+AUDIO = OUT / "audio"
+TMP = Path("/tmp/coco-render")
+BASE_VIDEO = TMP / "coco-base.mp4"
+FINAL_VIDEO = OUT / "Coco-Short-60s-FINAL.mp4"
+OUT.mkdir(exist_ok=True)
+AUDIO.mkdir(parents=True, exist_ok=True)
+TMP.mkdir(parents=True, exist_ok=True)
+
+WIDTH, HEIGHT, FPS, DURATION = 1080, 1920, 30, 60
+SLOT = 5
+DAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+REFERENCE = Path("coco-referencia.webp")
+
+# 150 combinaciones narrativas antes de rotar: 6 misterios x 5 destinos x 5 giros.
+MYSTERIES = [
+    ("La campana lunar", "una campana que suena debajo del polvo lunar", "Pipo", "un pequeño robot afinador", "una lluvia de meteoritos", "escuchar con atención"),
+    ("El faro de cristal", "un faro apagado en un planeta de hielo", "Nuba", "una luciérnaga de luz suave", "un puente de cristales", "trabajar en equipo"),
+    ("El bosque flotante", "un bosque de árboles que viaja sin rumbo", "Mara", "una tortuga astronauta", "una corriente de viento solar", "cuidar la naturaleza"),
+    ("El tren de cometas", "un tren de cometas que perdió su estación", "Bongo", "un zorro piloto", "un cruce de caminos luminosos", "mantener la calma"),
+    ("La ciudad diminuta", "una ciudad pequeñita escondida en un asteroide", "Lila", "una inventora marciana", "una puerta demasiado pesada", "ayudar sin rendirse"),
+    ("El jardín de colores", "un jardín espacial que está perdiendo sus colores", "Tito", "una lagartija piloto", "una nube que absorbe la luz", "compartir lo que tenemos"),
+]
+DESTINATIONS = [
+    "el valle de los anillos",
+    "la estación Arcoíris",
+    "el cráter de los susurros",
+    "el océano de estrellas",
+    "la montaña de polvo azul",
+]
+VARIANTS = [
+    ("una secuencia de luces que responde a la amistad", "Coco sigue el ritmo y activa el mecanismo", "La señal se transforma en una melodía alegre"),
+    ("un mapa brillante escondido entre dos rocas", "Coco ordena las piezas y abre el camino", "El lugar recupera su brillo"),
+    ("tres sonidos que solo se escuchan al trabajar juntos", "Coco repite la secuencia con su amigo", "Una puerta se abre sin peligro"),
+    ("un pequeño cristal que refleja el camino correcto", "Coco orienta el cristal hacia la estrella", "La misión queda a salvo y todos celebran"),
+    ("una pista que aparece cuando nadie se rinde", "Coco combina las ideas de todos", "El misterio se resuelve con una gran sonrisa"),
+]
+
+STORY_SPECS = [
+    (mystery, destination, variant)
+    for variant in VARIANTS
+    for mystery in MYSTERIES
+    for destination in DESTINATIONS
+]
+
+
+def make_story(mystery, destination, variant, serial):
+    name, clue, friend_name, friend_description, obstacle, lesson = mystery
+    twist, solution, finale = variant
+    title = f"{name}: misión {serial:03d}"
+    lines = [
+        f"¡Alerta espacial! {clue.capitalize()}.",
+        f"La señal apunta hacia {destination}.",
+        "Coco ajusta su gorra roja y activa su mochila cohete.",
+        f"Allí conoce a {friend_name}, que necesita ayuda.",
+        f"Pero {obstacle} bloquea el camino.",
+        "Coco respira y observa cada detalle con calma.",
+        f"Encuentra una pista: {twist}.",
+        f"{solution}.",
+        f"Juntos resuelven el misterio de {clue}.",
+        f"{finale}.",
+        f"{friend_name} acompaña a Coco de regreso a la nave.",
+        f"¡Misión cumplida! Hoy aprendemos a {lesson}.",
+    ]
+    return title, lines, friend_name, friend_description
+
+
+def run(command, quiet=False):
+    if quiet:
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        subprocess.run(command, check=True)
+
+
+def frame_hash(path, seconds):
+    return subprocess.check_output(
+        ["ffmpeg", "-v", "error", "-ss", str(seconds), "-i", str(path), "-frames:v", "1", "-f", "md5", "-"],
+        text=True,
+    ).strip()
+
+
+def stamp(seconds):
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},000"
+
+
+if not REFERENCE.is_file() or REFERENCE.stat().st_size == 0:
+    raise RuntimeError("No se descargó coco-referencia.webp; no se puede validar la referencia visual.")
+with Image.open(REFERENCE) as ref_image:
+    reference_size = list(ref_image.size)
+    if reference_size[0] < 100 or reference_size[1] < 100:
+        raise RuntimeError("La referencia de Coco tiene dimensiones no válidas.")
+
+run_number = int(os.environ.get("GITHUB_RUN_NUMBER", "0") or 0)
+serial = run_number if run_number > 0 else int(DAY.replace("-", ""))
+story_index = (serial - 1) % len(STORY_SPECS)
+title, lines, friend_name, friend_description = make_story(*STORY_SPECS[story_index], serial)
+
+episode = {
+    "id": f"coco-{serial:04d}",
+    "date": DAY,
+    "serial": serial,
+    "title": title,
+    "script": (
+        f"FICHA DE PERSONAJE INVITADO — {friend_name}\n"
+        f"DESCRIPCIÓN: {friend_description}\n"
+        + "\n".join(f"COCO: {line}" for line in lines)
+    ),
+    "narration": lines,
+}
+(TMP / "episode.json").write_text(json.dumps(episode, ensure_ascii=False, indent=2), encoding="utf-8")
+(OUT / "episode.json").write_text(json.dumps(episode, ensure_ascii=False, indent=2), encoding="utf-8")
+print(f"EPISODE_SELECTED={title} serial={serial} library={len(STORY_SPECS)}", flush=True)
+
+# Blender renders a real procedural 3D scene: Coco's rig, gestures, walk cycle,
+# blinking, mouth movement, moving star/asteroids, camera motion and guest character.
+print("BLENDER_3D_RENDER_START", flush=True)
+run(["blender", "--background", "--python", "video/render_coco.py"])
+if not BASE_VIDEO.is_file() or BASE_VIDEO.stat().st_size < 100_000:
+    raise RuntimeError("Blender no produjo un MP4 3D válido.")
+base_probe = json.loads(subprocess.check_output(
+    ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(BASE_VIDEO)],
+    text=True,
+))
+base_video = next(s for s in base_probe["streams"] if s.get("codec_type") == "video")
+base_duration = float(base_probe["format"]["duration"])
+if not (59.5 <= base_duration <= 60.5 and base_video.get("width") == 540 and base_video.get("height") == 960):
+    raise RuntimeError(f"El render 3D base no cumple 60 s y 540x960: {base_duration}s, {base_video.get('width')}x{base_video.get('height')}")
+motion_hashes = [frame_hash(BASE_VIDEO, t) for t in (2, 12, 22, 32, 42, 52)]
+if len(set(motion_hashes)) < 4:
+    raise RuntimeError("La validación detectó muy poco cambio visual entre escenas del render 3D.")
+print("BLENDER_3D_RENDER_VALIDATED=1", flush=True)
+
+# Narration: a separate Mexican Spanish neural voice segment for each 5-second beat.
+voice_rms = []
+voice_list = OUT / "voice-list.txt"
+for index, line in enumerate(lines):
+    mp3 = AUDIO / f"voice-{index + 1:02d}.mp3"
+    wav = AUDIO / f"voice-{index + 1:02d}.wav"
+    run([
+        "edge-tts", "--voice", "es-MX-DaliaNeural", "--rate=+12%",
+        "--text", line, "--write-media", str(mp3),
+    ])
+    if not mp3.is_file() or mp3.stat().st_size < 1000:
+        raise RuntimeError(f"Edge TTS devolvió voz vacía en la escena {index + 1}.")
+    run([
+        "ffmpeg", "-y", "-i", str(mp3), "-af", "apad", "-t", str(SLOT),
+        "-ar", "44100", "-ac", "2", str(wav),
+    ], quiet=True)
+    with wave.open(str(wav), "rb") as audio:
+        samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype=np.int16).astype(np.float64)
+    rms = float(np.sqrt(np.mean(samples * samples))) if samples.size else 0.0
+    peak = float(np.max(np.abs(samples))) if samples.size else 0.0
+    if rms < 35 or peak < 200:
+        raise RuntimeError(f"La narración de la escena {index + 1} está vacía o demasiado baja (RMS={rms:.1f}).")
+    voice_rms.append(round(rms, 1))
+
+voice_list.write_text(
+    "".join(f"file '{(AUDIO / f'voice-{i + 1:02d}.wav').resolve()}'\n" for i in range(len(lines))),
+    encoding="utf-8",
+)
+voice = OUT / "voice.wav"
+run([
+    "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(voice_list),
+    "-t", str(DURATION), "-ar", "44100", "-ac", "2", str(voice),
+], quiet=True)
+
+# Original, locally synthesized melody; no licensed track or paid music service.
+sample_rate = 44100
+music = np.zeros(sample_rate * DURATION, dtype=np.float32)
+melody = [261.63, 293.66, 329.63, 392.00, 349.23, 329.63, 293.66, 220.00]
+for note_index in range(48):
+    start = note_index * 1.25
+    end = min(start + 1.10, DURATION)
+    first = int(start * sample_rate)
+    last = int(end * sample_rate)
+    local = np.arange(last - first, dtype=np.float32) / sample_rate
+    envelope = np.sin(np.pi * np.clip(local / 1.10, 0, 1)) ** 2
+    frequency = melody[note_index % len(melody)]
+    tone = np.sin(2 * np.pi * frequency * local) + 0.28 * np.sin(2 * np.pi * (frequency / 2) * local)
+    music[first:last] += (0.024 * envelope * tone).astype(np.float32)
+time_axis = np.arange(sample_rate * DURATION, dtype=np.float32) / sample_rate
+fade = np.minimum(time_axis / 1.5, 1.0) * np.minimum((DURATION - time_axis) / 1.5, 1.0)
+music *= fade
+stereo = np.stack([music, music], axis=1)
+music_path = OUT / "music.wav"
+with wave.open(str(music_path), "wb") as audio:
+    audio.setnchannels(2)
+    audio.setsampwidth(2)
+    audio.setframerate(sample_rate)
+    audio.writeframes((np.clip(stereo, -1, 1) * 32767).astype("<i2").tobytes())
+
+# Timed subtitles are both burned into the video and delivered as a separate SRT.
+srt_entries = []
+for index, line in enumerate(lines):
+    srt_entries.append(
+        f"{index + 1}\n{stamp(index * SLOT)} --> {stamp((index + 1) * SLOT)}\n{line}\n"
+    )
+srt_path = OUT / "subtitles.srt"
+srt_path.write_text("\n".join(srt_entries), encoding="utf-8")
+if len([entry for entry in srt_path.read_text(encoding="utf-8").split("\n\n") if "-->" in entry]) != 12:
+    raise RuntimeError("El archivo SRT no contiene las 12 escenas esperadas.")
+
+# Final portrait master: 1080x1920, 30 fps, Mexican Spanish narration and original score.
+subtitle_filter = (
+    "scale=1080:1920:flags=lanczos,fps=30,"
+    "subtitles=output/subtitles.srt:"
+    "force_style='FontName=DejaVu Sans,FontSize=28,PrimaryColour=&H00FFFFFF,"
+    "OutlineColour=&H00101830,BorderStyle=3,BackColour=&H99050A1D,"
+    "Outline=2,Shadow=0,Alignment=2,MarginV=110,MarginL=64,MarginR=64'"
+)
+run([
+    "ffmpeg", "-y", "-i", str(BASE_VIDEO), "-i", str(voice), "-i", str(music_path),
+    "-filter_complex",
+    "[1:a]volume=1.0[v];[2:a]volume=0.18[m];"
+    "[v][m]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
+    "-vf", subtitle_filter,
+    "-map", "0:v", "-map", "[a]", "-t", str(DURATION),
+    "-metadata", f"title={title}",
+    "-metadata", "comment=Coco, el Monito Espacial | animación 3D diaria",
+    "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+    "-r", str(FPS), "-pix_fmt", "yuv420p",
+    "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+    str(FINAL_VIDEO),
+])
+
+probe = json.loads(subprocess.check_output(
+    ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(FINAL_VIDEO)],
+    text=True,
+))
+video_stream = next(s for s in probe["streams"] if s.get("codec_type") == "video")
+audio_stream = next(s for s in probe["streams"] if s.get("codec_type") == "audio")
+duration = float(probe["format"]["duration"])
+fps = float(Fraction(video_stream["avg_frame_rate"]))
+if not (59.8 <= duration <= 60.2):
+    raise RuntimeError(f"Duración final incorrecta: {duration}s.")
+if video_stream.get("width") != WIDTH or video_stream.get("height") != HEIGHT:
+    raise RuntimeError("La resolución final no es 1080x1920.")
+if abs(fps - FPS) > 0.01:
+    raise RuntimeError(f"El video final no es 30 fps: {video_stream['avg_frame_rate']}.")
+if not audio_stream or FINAL_VIDEO.stat().st_size < 500_000:
+    raise RuntimeError("El MP4 final no contiene una pista de audio o es demasiado pequeño.")
+final_audio = subprocess.check_output(
+    ["ffmpeg", "-v", "error", "-i", str(FINAL_VIDEO), "-vn", "-f", "s16le", "-ac", "2", "-ar", "44100", "-"],
+)
+final_samples = np.frombuffer(final_audio, dtype=np.int16).astype(np.float64)
+final_rms = float(np.sqrt(np.mean(final_samples * final_samples))) if final_samples.size else 0.0
+if final_rms < 100:
+    raise RuntimeError(f"La pista de audio final parece vacía (RMS={final_rms:.1f}).")
+
+report = {
+    "date": DAY,
+    "episode_serial": serial,
+    "title": title,
+    "duration_seconds": round(duration, 3),
+    "resolution": f"{WIDTH}x{HEIGHT}",
+    "fps": video_stream["avg_frame_rate"],
+    "video_codec": video_stream.get("codec_name"),
+    "audio_codec": audio_stream.get("codec_name"),
+    "audio_sample_rate": audio_stream.get("sample_rate"),
+    "narration_voice": "es-MX-DaliaNeural",
+    "narration_segments_rms": voice_rms,
+    "final_audio_rms": round(final_rms, 1),
+    "music": "original synthesized melody; no paid or licensed track",
+    "subtitles": "12 Spanish captions burned into the MP4 plus separate SRT",
+    "animation": "Blender EEVEE procedural 3D character animation",
+    "render_source": "540x960 at 15 fps; upscaled to 1080x1920 at 30 fps",
+    "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
+    "character_design": "brown monkey, bright red cap, white astronaut suit, silver rocket backpack; procedural adaptation of the official reference's key identifiers",
+    "reference_image": {"file": REFERENCE.name, "dimensions": reference_size, "downloaded": True},
+    "story_library": len(STORY_SPECS),
+    "story_rotation": "150 narrative combinations before rotation; serial is unique per workflow run",
+    "status": "verified",
+}
+(OUT / "production-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+print(
+    f"DAILY_VIDEO_READY={FINAL_VIDEO} duration={duration:.3f} "
+    f"resolution={WIDTH}x{HEIGHT} fps={video_stream['avg_frame_rate']} title={title}",
+    flush=True,
+)
