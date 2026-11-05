@@ -24,14 +24,15 @@ SLOT = 5
 DAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 REFERENCE = Path("coco-referencia.webp")
 
-# 150 combinaciones narrativas antes de rotar: 6 misterios x 5 destinos x 5 giros.
-MYSTERIES = [
-    ("La campana lunar", "una campana que suena debajo del polvo lunar", "Pipo", "un pequeño robot afinador", "una lluvia de meteoritos", "escuchar con atención"),
-    ("El faro de cristal", "un faro apagado en un planeta de hielo", "Nuba", "una luciérnaga de luz suave", "un puente de cristales", "trabajar en equipo"),
-    ("El bosque flotante", "un bosque de árboles que viaja sin rumbo", "Mara", "una tortuga astronauta", "una corriente de viento solar", "cuidar la naturaleza"),
-    ("El tren de cometas", "un tren de cometas que perdió su estación", "Bongo", "un zorro piloto", "un cruce de caminos luminosos", "mantener la calma"),
-    ("La ciudad diminuta", "una ciudad pequeñita escondida en un asteroide", "Lila", "una inventora marciana", "una puerta demasiado pesada", "ayudar sin rendirse"),
-    ("El jardín de colores", "un jardín espacial que está perdiendo sus colores", "Tito", "una lagartija piloto", "una nube que absorbe la luz", "compartir lo que tenemos"),
+# 150 combinaciones de la misma premisa visual: Coco ayuda a una estrella perdida.
+# El personaje invitado, el destino, el obstáculo y la solución cambian en cada episodio.
+FRIENDS = [
+    ("Pipo", "un pequeño robot afinador", "escuchar con atención"),
+    ("Nuba", "una nube luminosa", "trabajar en equipo"),
+    ("Mara", "una tortuga astronauta", "mantener la calma"),
+    ("Bongo", "un zorro piloto", "ayudar a los demás"),
+    ("Lila", "una flor marciana inventora", "compartir lo que tenemos"),
+    ("Tito", "una lagartija piloto", "no rendirse"),
 ]
 DESTINATIONS = [
     "el valle de los anillos",
@@ -41,41 +42,39 @@ DESTINATIONS = [
     "la montaña de polvo azul",
 ]
 VARIANTS = [
-    ("una secuencia de luces que responde a la amistad", "Coco sigue el ritmo y activa el mecanismo", "La señal se transforma en una melodía alegre"),
-    ("un mapa brillante escondido entre dos rocas", "Coco ordena las piezas y abre el camino", "El lugar recupera su brillo"),
-    ("tres sonidos que solo se escuchan al trabajar juntos", "Coco repite la secuencia con su amigo", "Una puerta se abre sin peligro"),
-    ("un pequeño cristal que refleja el camino correcto", "Coco orienta el cristal hacia la estrella", "La misión queda a salvo y todos celebran"),
-    ("una pista que aparece cuando nadie se rinde", "Coco combina las ideas de todos", "El misterio se resuelve con una gran sonrisa"),
+    ("una lluvia de meteoritos", "un patrón de luces detrás de una roca", "siguen el ritmo y activan una ruta luminosa", "todos celebran su regreso"),
+    ("un puente de cristales", "un mapa estelar escondido en el hielo", "ordenan las piezas y abren el camino", "la ruta queda iluminada para los viajeros"),
+    ("una nube de polvo brillante", "tres sonidos que llegan desde la constelación", "repiten la secuencia y encuentran la señal", "la constelación vuelve a brillar"),
+    ("un cometa que cruza la ruta", "un cristal que refleja el camino correcto", "orientan el cristal hacia la constelación", "la nave recibe una señal de agradecimiento"),
+    ("un campo de rocas flotantes", "una pista que aparece cuando nadie se rinde", "combinan sus ideas y despejan el camino", "el cielo recupera una luz que parecía perdida"),
 ]
-
 STORY_SPECS = [
-    (mystery, destination, variant)
+    (friend, destination, variant)
     for variant in VARIANTS
-    for mystery in MYSTERIES
+    for friend in FRIENDS
     for destination in DESTINATIONS
 ]
 
 
-def make_story(mystery, destination, variant, serial):
-    name, clue, friend_name, friend_description, obstacle, lesson = mystery
-    twist, solution, finale = variant
-    title = f"{name}: misión {serial:03d}"
+def make_story(friend, destination, variant, serial):
+    friend_name, friend_description, lesson = friend
+    obstacle, twist, solution, finale = variant
+    title = f"La estrella perdida: misión {serial:03d}"
     lines = [
-        f"¡Alerta espacial! {clue.capitalize()}.",
-        f"La señal apunta hacia {destination}.",
+        "¡Alerta espacial! Una estrella azul perdió su camino.",
+        f"Su última señal apunta hacia {destination}.",
         "Coco ajusta su gorra roja y activa su mochila cohete.",
-        f"Allí conoce a {friend_name}, que necesita ayuda.",
-        f"Pero {obstacle} bloquea el camino.",
-        "Coco respira y observa cada detalle con calma.",
+        f"Allí conoce a {friend_name}, {friend_description}.",
+        f"Pero {obstacle} bloquea la ruta de regreso.",
+        "Coco respira y observa cada destello con calma.",
         f"Encuentra una pista: {twist}.",
-        f"{solution}.",
-        f"Juntos resuelven el misterio de {clue}.",
-        f"{finale}.",
+        f"Coco y {friend_name} {solution}.",
+        "Juntos guían la estrella hacia su hogar.",
+        f"La estrella brilla y {finale}.",
         f"{friend_name} acompaña a Coco de regreso a la nave.",
         f"¡Misión cumplida! Hoy aprendemos a {lesson}.",
     ]
     return title, lines, friend_name, friend_description
-
 
 def run(command, quiet=False):
     if quiet:
