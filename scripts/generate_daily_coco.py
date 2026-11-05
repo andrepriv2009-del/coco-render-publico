@@ -128,14 +128,14 @@ with wave.open(str(OUT/"music.wav"),"wb") as f:
 # Timed captions and final mix.
 srt=[]
 for i,line in enumerate(lines):
- def stamp(s): return f"00:00:{s:02d},000"
+ def stamp(s): return f"00:{s//60:02d}:{s%60:02d},000"
  srt.append(f"{i+1}\n{stamp(i*5)} --> {stamp((i+1)*5)}\n{line}\n")
 (OUT/"subtitles.srt").write_text("\n".join(srt),encoding="utf-8")
 final=OUT/"Coco-Short-60s-FINAL.mp4"
 subprocess.run(["ffmpeg","-y","-i",str(silent),"-i",str(voice),"-i",str(OUT/"music.wav"),
  "-vf","subtitles=output/subtitles.srt:force_style='FontName=DejaVu Sans,FontSize=30,Outline=2,Shadow=1,Alignment=2,MarginV=140'",
  "-filter_complex","[1:a]volume=1.0[v];[2:a]volume=0.16[m];[v][m]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
- "-map","0:v","-map","[a]","-t","60","-c:v","libx264","-preset","medium","-crf","19","-c:a","aac","-b:a","192k","-pix_fmt","yuv420p","-movflags","+faststart",str(final)],check=True)
+ "-map","0:v","-map","[a]","-t","60","-metadata","title",title,"-metadata","comment","Coco, el Monito Espacial | episodio diario","-c:v","libx264","-preset","medium","-crf","19","-c:a","aac","-b:a","192k","-pix_fmt","yuv420p","-movflags","+faststart",str(final)],check=True)
 probe=json.loads(subprocess.check_output(["ffprobe","-v","error","-show_streams","-show_format","-of","json",str(final)],text=True))
 v=next(s for s in probe["streams"] if s["codec_type"]=="video"); a=next(s for s in probe["streams"] if s["codec_type"]=="audio")
 dur=float(probe["format"]["duration"])
