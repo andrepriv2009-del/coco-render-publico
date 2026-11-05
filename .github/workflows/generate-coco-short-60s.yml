@@ -1,5 +1,9 @@
 name: Coco — Short final de 60 segundos (Wan 2.2)
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/generate-coco-short-60s.yml'
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
