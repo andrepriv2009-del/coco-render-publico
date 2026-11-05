@@ -83,8 +83,10 @@ for i,line in enumerate(lines):
    else: cur=test
   if cur: wrapped.append(cur)
   if len(wrapped)<=4: break
+ if len(wrapped)>4:
+  raise ValueError(f"El texto de la escena {i+1} no cabe completo en el panel; se cancela la producción para evitar subtítulos cortados: {headline}")
  yy=1480; line_h=76 if chosen.size>=36 else 68
- for part in wrapped[:4]:
+ for part in wrapped:
   d.text((95,yy),part,font=chosen,fill="white",stroke_width=2,stroke_fill=(10,20,55)); yy+=line_h
  d.text((90,1790),"COCO, EL MONITO ESPACIAL",font=small,fill=(255,205,90))
  canvas.convert("RGB").save(FRAMES/f"scene-{i+1:02d}.jpg",quality=94)
