@@ -44,7 +44,6 @@ jobs:
           mkdir -p output/parts
           find output/parts -maxdepth 1 -name 'part-*.mp4' -type f -printf '%f\n' | sort || true
       - name: Descargar referencia privada de Coco
-        if: ${{ !hashFiles('output/Coco-Short-60s-FINAL.mp4') }}
         env:
           GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
         run: |
