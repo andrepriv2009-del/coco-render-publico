@@ -123,12 +123,11 @@ for i,line in enumerate(lines):
 (OUT/"subtitles.srt").write_text("\n".join(srt),encoding="utf-8")
 final=OUT/"Coco-Short-60s-FINAL.mp4"
 subprocess.run(["ffmpeg","-y","-i",str(silent),"-i",str(voice),"-i",str(OUT/"music.wav"),
- "-vf","subtitles=output/subtitles.srt:force_style='FontName=DejaVu Sans,FontSize=30,Outline=2,Shadow=1,Alignment=2,MarginV=140'",
  "-filter_complex","[1:a]volume=1.0[v];[2:a]volume=0.16[m];[v][m]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
  "-map","0:v","-map","[a]","-t","60","-metadata",f"title={title}","-metadata","comment=Coco, el Monito Espacial | episodio diario","-c:v","libx264","-preset","medium","-crf","19","-c:a","aac","-b:a","192k","-pix_fmt","yuv420p","-movflags","+faststart",str(final)],check=True)
 probe=json.loads(subprocess.check_output(["ffprobe","-v","error","-show_streams","-show_format","-of","json",str(final)],text=True))
 v=next(s for s in probe["streams"] if s["codec_type"]=="video"); a=next(s for s in probe["streams"] if s["codec_type"]=="audio")
 dur=float(probe["format"]["duration"])
 assert 59.8<=dur<=60.2 and v["width"]==1080 and v["height"]==1920 and a
-(OUT/"production-report.json").write_text(json.dumps({"date":DAY,"title":title,"duration":dur,"resolution":"1080x1920","fps":v["avg_frame_rate"],"voice":"es-MX-DaliaNeural","music":"original synthesized","captions":"burned in + SRT","status":"verified"},ensure_ascii=False,indent=2))
+(OUT/"production-report.json").write_text(json.dumps({"date":DAY,"title":title,"duration":dur,"resolution":"1080x1920","fps":v["avg_frame_rate"],"voice":"es-MX-DaliaNeural","music":"original synthesized","captions":"scene text burned into visuals + separate SRT","status":"verified"},ensure_ascii=False,indent=2))
 print(f"DAILY_VIDEO_READY={final} duration={dur} title={title}")
