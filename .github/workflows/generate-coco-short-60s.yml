@@ -19,7 +19,7 @@ permissions:
   contents: read
 concurrency:
   group: coco-short-60s
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   render-short:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'push' || inputs.confirm == 'GENERAR' }}
@@ -63,7 +63,7 @@ jobs:
         run: |
           command -v ffmpeg
           ffmpeg -version | head -n 1
-          fc-match "DejaVu Sans" >/dev/null
+          ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
@@ -72,10 +72,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install gradio_client edge-tts numpy
+      - name: Validar sintaxis del generador
+        run: python -m py_compile scripts/generate_coco_short.py
       - name: Generar escenas pendientes y ensamblar Short de 60 segundos
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          WAN_SPACE_URL: https://zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space
+          WAN_SPACE_ID: zerogpu-aoti/wan2-2-fp8da-aoti-faster
           PYTHONUNBUFFERED: "1"
         run: |
           python scripts/generate_coco_short.py
