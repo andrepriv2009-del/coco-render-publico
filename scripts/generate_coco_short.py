@@ -3,6 +3,9 @@ import subprocess
 import shutil
 import math
 import wave
+import json
+import re
+from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -14,11 +17,6 @@ PARTS = OUT / "parts"
 OUT.mkdir(exist_ok=True)
 PARTS.mkdir(exist_ok=True)
 
-TOKEN = os.environ.get("HF_TOKEN", "").strip()
-if not TOKEN:
-    raise SystemExit("Falta el secreto HF_TOKEN.")
-if not Path("coco-referencia.webp").is_file():
-    raise SystemExit("No se encontró coco-referencia.webp.")
 
 # Historia original de 60 segundos: 12 escenas consecutivas de 5 segundos.
 scenes = [
@@ -55,6 +53,45 @@ quota_exhausted = False
 def run(cmd):
     subprocess.run(cmd, check=True)
 
+def probe(path):
+    raw = subprocess.check_output([
+        "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)
+    ], text=True)
+    return json.loads(raw)
+
+def valid_final(path):
+    try:
+        info = probe(path)
+        duration = float(info.get("format", {}).get("duration", 0))
+        streams = info.get("streams", [])
+        video = next(x for x in streams if x.get("codec_type") == "video")
+        audio = next(x for x in streams if x.get("codec_type") == "audio")
+        fps = float(Fraction(video.get("avg_frame_rate", "0/1")))
+        return (59.8 <= duration <= 60.2 and video.get("width") == 1080
+                and video.get("height") == 1920 and abs(fps - 30) < 0.05
+                and audio.get("codec_type") == "audio")
+    except Exception:
+        return False
+
+final_video = OUT / "Coco-Short-60s-FINAL.mp4"
+if final_video.is_file():
+    if valid_final(final_video):
+        print("FINAL_ALREADY_VALID=1", flush=True)
+        write_status("complete", final_video=str(final_video), reason="El MP4 final ya existía y pasó las validaciones.")
+        raise SystemExit(0)
+    print("FINAL_EXISTING_INVALID=1; se eliminará para reconstruirlo.", flush=True)
+    final_video.unlink()
+
+TOKEN = os.environ.get("HF_TOKEN", "").strip()
+if not TOKEN:
+    raise SystemExit("Falta el secreto HF_TOKEN.")
+if not Path("coco-referencia.webp").is_file():
+    raise SystemExit("No se encontró coco-referencia.webp.")
+
+client = Client("zerogpu-aoti/wan-2-2-fp8da-aoti-faster", token=TOKEN)
+reference = Path("coco-referencia.webp")
+quota_exhausted = False
+
 def ffprobe_duration(path):
     out = subprocess.check_output([
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -73,7 +110,17 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
         image_input = frame
 
     # Reuse completed scenes from the previous run instead of spending GPU again.
-    if normalized.is_file() and ffprobe_duration(normalized) >= 4.85:
+    reusable = False
+    if normalized.is_file():
+        try:
+            info = probe(normalized)
+            v = next(x for x in info.get("streams", []) if x.get("codec_type") == "video")
+            reusable = (4.85 <= float(info.get("format", {}).get("duration", 0)) <= 5.15
+                        and v.get("width") == 1080 and v.get("height") == 1920
+                        and abs(float(Fraction(v.get("avg_frame_rate", "0/1"))) - 30) < 0.05)
+        except Exception:
+            reusable = False
+    if reusable:
         print(f"PART_REUSED={idx}/12", flush=True)
     else:
         print(f"GENERATING_PART={idx}/12", flush=True)
@@ -92,9 +139,16 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
             )
         except Exception as exc:
             # A free ZeroGPU quota limit is an expected pause, not a broken render.
-            if "exceeded your free zerogpu quota" in str(exc).lower():
+            message = str(exc)
+            lower_message = message.lower()
+            is_quota = ("quota" in lower_message and ("zerogpu" in lower_message or "gpu" in lower_message or "free" in lower_message))
+            if is_quota:
                 print(f"QUOTA_PAUSE_AFTER_PART={idx - 1}/12", flush=True)
-                print(f"QUOTA_MESSAGE={exc}", flush=True)
+                print(f"QUOTA_MESSAGE={message}", flush=True)
+                retry_match = re.search(r"try again in\\s+(\\d+):(\\d{2}):(\\d{2})", message, re.IGNORECASE)
+                retry_after = None
+                if retry_match:
+                    retry_after = int(retry_match.group(1)) * 3600 + int(retry_match.group(2)) * 60 + int(retry_match.group(3))
                 quota_exhausted = True
                 break
             raise
@@ -125,6 +179,9 @@ if missing_parts:
     print(f"MISSING_PARTS={missing_parts}", flush=True)
     if quota_exhausted:
         print("RENDER_PAUSED_FOR_FREE_QUOTA; progress safely saved for the next run.", flush=True)
+        write_status("paused_quota", missing_parts=missing_parts, retry_after_seconds=retry_after if "retry_after" in locals() else None, reason="Hugging Face ZeroGPU agotó temporalmente la cuota gratuita.")
+    else:
+        write_status("incomplete", missing_parts=missing_parts, reason="Faltan escenas por generar.")
     raise SystemExit(0)
 
 # Concatenate the twelve normalized video parts.
@@ -184,7 +241,6 @@ with wave.open(str(music_wav), "wb") as wf:
     wf.writeframes((stereo * 32767).astype("<i2").tobytes())
 
 # Burn Spanish subtitles, mix narration with original background music, and encode final MP4.
-final_video = OUT / "Coco-Short-60s-FINAL.mp4"
 subtitle_filter = "subtitles=output/subtitles.srt:force_style='FontName=DejaVu Sans,FontSize=22,Outline=2,Shadow=1,Alignment=2,MarginV=120'"
 run([
     "ffmpeg", "-y", "-i", str(silent_video), "-i", str(voice_wav), "-i", str(music_wav),
@@ -196,7 +252,8 @@ run([
 ])
 
 duration = ffprobe_duration(final_video)
-if abs(duration - 60.0) > 0.15:
-    raise RuntimeError(f"El video final no dura 60 segundos: {duration:.3f}")
+if not valid_final(final_video):
+    raise RuntimeError("El MP4 final no pasó las validaciones de duración, resolución, FPS y pista de audio.")
 print(f"FINAL_VIDEO={final_video}", flush=True)
 print(f"FINAL_DURATION={duration:.3f}", flush=True)
+write_status("complete", final_video=str(final_video), duration_seconds=duration, reason="12 escenas, audio, música y subtítulos verificados.")
