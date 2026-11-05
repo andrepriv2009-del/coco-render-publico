@@ -47,8 +47,6 @@ scenes = [
 ]
 
 client = Client("zerogpu-aoti/wan2-2-fp8da-aoti-faster", token=TOKEN)
-reference = Path("coco-referencia.webp")
-quota_exhausted = False
 
 def run(cmd):
     subprocess.run(cmd, check=True)
@@ -60,14 +58,14 @@ def write_status(status, **extra):
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
-            f.write("## Coco — estado del render\\n\\n")
-            f.write(f"- Estado: **{status}**\\n")
-            f.write(f"- Escenas completas: **{completed}/12**\\n")
+            f.write("## Coco — estado del render\n\n")
+            f.write(f"- Estado: **{status}**\n")
+            f.write(f"- Escenas completas: **{completed}/12**\n")
             if extra.get("reason"):
-                f.write(f"- Detalle: {extra['reason']}\\n")
+                f.write(f"- Detalle: {extra['reason']}\n")
             if status != "complete":
-                f.write("- El progreso queda guardado para el siguiente intento automático.\\n")
-            f.write("\\n")
+                f.write("- El progreso queda guardado para el siguiente intento automático.\n")
+            f.write("\n")
 
 def probe(path):
     raw = subprocess.check_output([
@@ -103,6 +101,9 @@ if not TOKEN:
     raise SystemExit("Falta el secreto HF_TOKEN.")
 if not Path("coco-referencia.webp").is_file():
     raise SystemExit("No se encontró coco-referencia.webp.")
+client = Client("zerogpu-aoti/wan-2-2-fp8da-aoti-faster", token=TOKEN)
+reference = Path("coco-referencia.webp")
+quota_exhausted = False
 
 def ffprobe_duration(path):
     out = subprocess.check_output([
