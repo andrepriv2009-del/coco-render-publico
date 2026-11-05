@@ -9,7 +9,7 @@ Este repositorio contiene el renderizador automático de un YouTube Short infant
 - 12 escenas consecutivas de 5 segundos.
 - Animación generada con **Wan 2.2 I2V 14B + Lightning LoRA**, mediante el Space público de Hugging Face `zerogpu-aoti/wan2-2-fp8da-aoti-faster`.
 - Continuidad visual: el último fotograma de cada escena se usa como referencia para la siguiente.
-- Voz en español mexicano con Edge TTS (Dalia), música original sintetizada y subtítulos incrustados.
+- Voz en español mexicano con Edge TTS (Dalia), música original sintetizada, efectos sonoros originales sincronizados y subtítulos incrustados.
 - Validación final de duración, resolución, FPS y pista de audio.
 
 ## Automatización
