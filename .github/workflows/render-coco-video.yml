@@ -1,8 +1,8 @@
-name: LEGACY — renderizador Blender desactivado
+name: LEGACY — renderizador Blender integrado en producción diaria
 
-# Este flujo se conserva solo como referencia histórica.
-# La producción aprobada es Hugging Face Wan 2.2; no ejecutar Blender,
-# no consumir minutos de Actions y no modificar episodios de D1 desde aquí.
+# La producción diaria ejecuta video/render_coco.py desde
+# coco-daily-production.yml. Este flujo histórico queda inerte para evitar
+# renders duplicados y no consulta ni modifica D1.
 on:
   workflow_dispatch:
 
@@ -14,5 +14,5 @@ jobs:
     if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
-      - name: Flujo retirado
-        run: echo "Este renderizador está desactivado. Usa el flujo Hugging Face Wan 2.2."
+      - name: Flujo histórico desactivado
+        run: echo "El render 3D se ejecuta exclusivamente desde coco-daily-production.yml."
