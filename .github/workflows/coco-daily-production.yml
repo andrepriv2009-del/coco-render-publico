@@ -1,12 +1,7 @@
 name: Coco — Producción diaria automática
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/generate_daily_coco.py'
-      - '.github/workflows/coco-daily-production.yml'
+  # 00:30 hora de Nuevo León (UTC-6). Solo producción programada o despacho manual.
   schedule:
-    # 00:30 hora de Nuevo León (UTC-6)
     - cron: "30 6 * * *"
   workflow_dispatch:
 permissions:
@@ -18,7 +13,7 @@ concurrency:
 jobs:
   produce:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Descargar proyecto
         uses: actions/checkout@v4
@@ -30,21 +25,27 @@ jobs:
           test -n "$GH_READ_TOKEN" || { echo "::error::Falta el secreto GH_READ_TOKEN"; exit 1; }
           curl --fail --silent --show-error -H "Authorization: Bearer $GH_READ_TOKEN" -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" -o coco-referencia.webp
           test -s coco-referencia.webp
-      - name: Instalar herramientas gratuitas
+      - name: Instalar Blender y herramientas gratuitas
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg libass9 fonts-dejavu-core
+          sudo apt-get install -y --no-install-recommends blender ffmpeg libass9 fonts-dejavu-core libegl1 libgl1
+          blender --version | head -n 1
+          ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
           python -m pip install --upgrade pip
-          python -m pip install pillow numpy edge-tts
-      - name: Generar episodio diario, voz, música y subtítulos
+          python -m pip install numpy pillow edge-tts
+      - name: Generar episodio 3D, voz mexicana, música y subtítulos
+        env:
+          PYTHONUNBUFFERED: "1"
         run: python scripts/generate_daily_coco.py
-      - name: Guardar MP4 y reporte
+      - name: Guardar MP4, SRT, episodio y reporte
         uses: actions/upload-artifact@v4
         with:
           name: Coco-video-diario-${{ github.run_number }}
           path: |
             output/Coco-Short-60s-FINAL.mp4
             output/subtitles.srt
+            output/episode.json
             output/production-report.json
           if-no-files-found: error
           retention-days: 30
