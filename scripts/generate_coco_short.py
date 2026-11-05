@@ -46,7 +46,6 @@ scenes = [
      "Coco sonríe: ¡hasta la luz más pequeña merece ayuda!")
 ]
 
-client = Client("zerogpu-aoti/wan2-2-fp8da-aoti-faster", token=TOKEN)
 
 def run(cmd):
     subprocess.run(cmd, check=True)
