@@ -64,23 +64,29 @@ for i,line in enumerate(lines):
  character=fit(ref.copy(),([650,720,590,760][i%4], [780,860,700,900][i%4]))
  panel=Image.new("RGBA",(850,1000),(255,255,255,18))
  canvas.alpha_composite(panel,(115,650))
- cx=[130,430,80,350,210,470][i%6]; cy=[760,690,820,730,660,780][i%6]\n canvas.alpha_composite(character,(cx,cy))
+ cx=[130,430,80,350,210,470][i%6]; cy=[760,690,820,730,660,780][i%6]
+ canvas.alpha_composite(character,(cx,cy))
  d=ImageDraw.Draw(canvas)
  d.rounded_rectangle((55,65,1025,230),radius=38,fill=(5,10,35,190),outline=(110,190,255,190),width=4)
  d.text((90,105),f"COCO • AVENTURA {i+1:02d}/12",font=small,fill=(120,225,255))
  headline=line
  d.rounded_rectangle((55,1435,1025,1850),radius=42,fill=(4,9,30,225),outline=(255,255,255,120),width=3)
  wrapped=[]; cur=""
- for word in headline.split():
-  test=(cur+" "+word).strip()
-  if d.textbbox((0,0),test,font=font)[2] > 870:
-   wrapped.append(cur); cur=word
-  else: cur=test
- if cur: wrapped.append(cur)
- yy=1580
- for part in wrapped[:3]:
-  d.text((95,yy),part,font=font,fill="white",stroke_width=2,stroke_fill=(10,20,55)); yy+=78
- d.text((90,1770),"COCO, EL MONITO ESPACIAL",font=small,fill=(255,205,90))
+ chosen=font
+ for sz in (40,38,36,34,32,30):
+  chosen=ImageFont.truetype(font_path,sz); wrapped=[]; cur=""
+  for word in headline.split():
+   test=(cur+" "+word).strip()
+   if d.textbbox((0,0),test,font=chosen)[2] > 870:
+    if cur: wrapped.append(cur)
+    cur=word
+   else: cur=test
+  if cur: wrapped.append(cur)
+  if len(wrapped)<=4: break
+ yy=1480; line_h=76 if chosen.size>=36 else 68
+ for part in wrapped[:4]:
+  d.text((95,yy),part,font=chosen,fill="white",stroke_width=2,stroke_fill=(10,20,55)); yy+=line_h
+ d.text((90,1790),"COCO, EL MONITO ESPACIAL",font=small,fill=(255,205,90))
  canvas.convert("RGB").save(FRAMES/f"scene-{i+1:02d}.jpg",quality=94)
 clips=[]
 for i in range(12):
