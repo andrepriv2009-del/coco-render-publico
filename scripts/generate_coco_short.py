@@ -100,7 +100,8 @@ if not TOKEN:
     raise SystemExit("Falta el secreto HF_TOKEN.")
 if not Path("coco-referencia.webp").is_file():
     raise SystemExit("No se encontró coco-referencia.webp.")
-client = Client("zerogpu-aoti/wan-2-2-fp8da-aoti-faster", token=TOKEN)
+SPACE_URL = os.environ.get("WAN_SPACE_URL", "https://zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space").strip()
+client = Client(SPACE_URL, token=TOKEN)
 reference = Path("coco-referencia.webp")
 quota_exhausted = False
 
