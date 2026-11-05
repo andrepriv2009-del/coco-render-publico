@@ -79,8 +79,9 @@ def valid_final(path):
         streams = info.get("streams", [])
         video = next(x for x in streams if x.get("codec_type") == "video")
         audio = next(x for x in streams if x.get("codec_type") == "audio")
+        audio_duration = float(audio.get("duration", duration))
         fps = float(Fraction(video.get("avg_frame_rate", "0/1")))
-        return (59.8 <= duration <= 60.2 and video.get("width") == 1080
+        return (59.8 <= duration <= 60.2 and 59.8 <= audio_duration <= 60.2 and video.get("width") == 1080
                 and video.get("height") == 1920 and abs(fps - 30) < 0.05
                 and audio.get("codec_type") == "audio")
     except Exception:
@@ -100,8 +101,8 @@ if not TOKEN:
     raise SystemExit("Falta el secreto HF_TOKEN.")
 if not Path("coco-referencia.webp").is_file():
     raise SystemExit("No se encontró coco-referencia.webp.")
-SPACE_URL = os.environ.get("WAN_SPACE_URL", "https://zerogpu-aoti-wan2-2-fp8da-aoti-faster.hf.space").strip()
-client = Client(SPACE_URL, token=TOKEN)
+SPACE_ID = os.environ.get("WAN_SPACE_ID", "zerogpu-aoti/wan2-2-fp8da-aoti-faster").strip()
+client = Client(SPACE_ID, token=TOKEN)
 reference = Path("coco-referencia.webp")
 quota_exhausted = False
 
@@ -155,7 +156,7 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
             # A free ZeroGPU quota limit is an expected pause, not a broken render.
             message = str(exc)
             lower_message = message.lower()
-            retry_match = re.search(r"try again in\\s+(\\d+):(\\d{2}):(\\d{2})", message, re.IGNORECASE)
+            retry_match = re.search(r"try again in\s+(\d+):(\d{2}):(\d{2})", message, re.IGNORECASE)
             is_quota = (
                 retry_match is not None
                 or "zerogpu quota" in lower_message
