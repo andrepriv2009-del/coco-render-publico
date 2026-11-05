@@ -59,11 +59,12 @@ jobs:
             "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" \
             -o coco-referencia.webp
           test -s coco-referencia.webp
-      - name: Verificar FFmpeg y fuentes del runner
+      - name: Instalar FFmpeg con soporte de subtítulos
         run: |
+          sudo apt-get install -y --no-install-recommends ffmpeg libass9 fonts-dejavu-core
           command -v ffmpeg
           ffmpeg -version | head -n 1
-          ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
+          ffmpeg -hide_banner -filters 2>&1 | grep subtitles
       - name: Preparar Python
         uses: actions/setup-python@v5
         with:
