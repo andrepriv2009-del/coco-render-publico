@@ -50,6 +50,7 @@ scenes = [
 
 client = Client("zerogpu-aoti/wan2-2-fp8da-aoti-faster", token=TOKEN)
 reference = Path("coco-referencia.webp")
+quota_exhausted = False
 
 def run(cmd):
     subprocess.run(cmd, check=True)
@@ -76,18 +77,27 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
         print(f"PART_REUSED={idx}/12", flush=True)
     else:
         print(f"GENERATING_PART={idx}/12", flush=True)
-        result = client.predict(
-            input_image=handle_file(str(image_input)),
-            prompt=prompt + " Coco debe conservar su identidad y aspecto de la imagen de referencia: monito café, gorra roja brillante, traje espacial blanco y mochila cohete plateada con detalles rojos. Sin texto ni marcas de agua. Movimiento natural, sin deformaciones.",
-            steps=4,
-            negative_prompt="low quality, flicker, jitter, deformed face, extra limbs, text, watermark, changed clothes, missing red cap, missing rocket backpack, duplicate character",
-            duration_seconds=5.0,
-            guidance_scale=1,
-            guidance_scale_2=1,
-            seed=4100 + idx,
-            randomize_seed=False,
-            api_name="/generate_video",
-        )
+        try:
+            result = client.predict(
+                input_image=handle_file(str(image_input)),
+                prompt=prompt + " Coco debe conservar su identidad y aspecto de la imagen de referencia: monito café, gorra roja brillante, traje espacial blanco y mochila cohete plateada con detalles rojos. Sin texto ni marcas de agua. Movimiento natural, sin deformaciones.",
+                steps=4,
+                negative_prompt="low quality, flicker, jitter, deformed face, extra limbs, text, watermark, changed clothes, missing red cap, missing rocket backpack, duplicate character",
+                duration_seconds=5.0,
+                guidance_scale=1,
+                guidance_scale_2=1,
+                seed=4100 + idx,
+                randomize_seed=False,
+                api_name="/generate_video",
+            )
+        except Exception as exc:
+            # A free ZeroGPU quota limit is an expected pause, not a broken render.
+            if "exceeded your free zerogpu quota" in str(exc).lower():
+                print(f"QUOTA_PAUSE_AFTER_PART={idx - 1}/12", flush=True)
+                print(f"QUOTA_MESSAGE={exc}", flush=True)
+                quota_exhausted = True
+                break
+            raise
         video_path = result[0] if isinstance(result, (tuple, list)) else result
         if isinstance(video_path, dict):
             video_path = video_path.get("path") or video_path.get("name")
@@ -106,6 +116,16 @@ for idx, (prompt, narration) in enumerate(scenes, start=1):
     # Always rebuild the continuity reference from the latest completed scene.
     run(["ffmpeg", "-y", "-sseof", "-0.15", "-i", str(normalized), "-frames:v", "1", "-q:v", "2", str(frame)])
     print(f"PART_READY={idx}", flush=True)
+
+# Do not attempt assembly until every scene exists. The workflow will archive the
+# completed parts and resume from the next missing scene on its next scheduled run.
+missing_parts = [i for i in range(1, 13) if not (PARTS / f"part-{i:02d}.mp4").is_file()]
+if missing_parts:
+    print(f"RENDER_INCOMPLETE={12 - len(missing_parts)}/12", flush=True)
+    print(f"MISSING_PARTS={missing_parts}", flush=True)
+    if quota_exhausted:
+        print("RENDER_PAUSED_FOR_FREE_QUOTA; progress safely saved for the next run.", flush=True)
+    raise SystemExit(0)
 
 # Concatenate the twelve normalized video parts.
 concat_file = OUT / "concat.txt"
