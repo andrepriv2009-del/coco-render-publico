@@ -2,6 +2,7 @@ import json
 import math
 import os
 import subprocess
+import textwrap
 import wave
 from datetime import datetime, timezone
 from pathlib import Path
@@ -227,24 +228,63 @@ with wave.open(str(music_path), "wb") as audio:
     audio.setframerate(sample_rate)
     audio.writeframes((np.clip(stereo, -1, 1) * 32767).astype("<i2").tobytes())
 
-# Timed subtitles are both burned into the video and delivered as a separate SRT.
+# Timed subtitles: SRT sidecar plus ASS with an explicit lower-safe-area anchor.
+def ass_stamp(seconds):
+    centiseconds = int(round(seconds * 100))
+    hours = centiseconds // 360000
+    minutes = (centiseconds // 6000) % 60
+    secs = (centiseconds // 100) % 60
+    fraction = centiseconds % 100
+    return f"{hours}:{minutes:02d}:{secs:02d}.{fraction:02d}"
+
 srt_entries = []
+ass_entries = []
 for index, line in enumerate(lines):
+    caption_lines = textwrap.wrap(
+        line, width=36, break_long_words=False, break_on_hyphens=False
+    ) or [line]
+    if len(caption_lines) > 3:
+        raise RuntimeError(f"La escena {index + 1} excede tres líneas de subtítulos.")
+    srt_caption = "\n".join(caption_lines)
+    ass_caption = r"\N".join(caption_lines).replace("{", r"\\{").replace("}", r"\\}")
     srt_entries.append(
-        f"{index + 1}\n{stamp(index * SLOT)} --> {stamp((index + 1) * SLOT)}\n{line}\n"
+        f"{index + 1}\n{stamp(index * SLOT)} --> {stamp((index + 1) * SLOT)}\n{srt_caption}\n"
     )
+    ass_entries.append(
+        f"Dialogue: 0,{ass_stamp(index * SLOT)},{ass_stamp((index + 1) * SLOT)},"
+        f"Coco,,0,0,0,,{{\\an2\\pos(540,1640)\\q2}}{ass_caption}"
+    )
+
 srt_path = OUT / "subtitles.srt"
 srt_path.write_text("\n".join(srt_entries), encoding="utf-8")
 if len([entry for entry in srt_path.read_text(encoding="utf-8").split("\n\n") if "-->" in entry]) != 12:
     raise RuntimeError("El archivo SRT no contiene las 12 escenas esperadas.")
 
+ass_path = OUT / "subtitles.ass"
+ass_header = [
+    "[Script Info]",
+    "ScriptType: v4.00+",
+    "PlayResX: 1080",
+    "PlayResY: 1920",
+    "WrapStyle: 2",
+    "ScaledBorderAndShadow: yes",
+    "",
+    "[V4+ Styles]",
+    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+    "Style: Coco,DejaVu Sans,42,&H00FFFFFF,&H000000FF,&H00101830,&H80000000,0,0,0,0,100,100,0,0,1,3,1,2,110,110,280,1",
+    "",
+    "[Events]",
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+]
+ass_path.write_text("\n".join(ass_header + ass_entries) + "\n", encoding="utf-8")
+if len(ass_entries) != 12:
+    raise RuntimeError("El archivo ASS no contiene las 12 escenas esperadas.")
+
 # Final portrait master: 1080x1920, 30 fps, Mexican Spanish narration and original score.
+# Explicit ASS positioning avoids the top-clipped SRT placement seen in the previous render.
 subtitle_filter = (
     "scale=1080:1920:flags=lanczos,fps=30,"
-    "subtitles=output/subtitles.srt:"
-    "force_style='FontName=DejaVu Sans,FontSize=9,PrimaryColour=&H00FFFFFF,"
-    "OutlineColour=&H00101830,BorderStyle=1,Outline=2,Shadow=1,"
-    "Alignment=2,MarginV=240,MarginL=130,MarginR=130'"
+    "subtitles=output/subtitles.ass"
 )
 run([
     "ffmpeg", "-y", "-i", str(BASE_VIDEO), "-i", str(voice), "-i", str(music_path),
