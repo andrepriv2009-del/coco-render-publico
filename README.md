@@ -1,49 +1,72 @@
-# Coco, el Monito Espacial — renderizador Wan 2.2
+# Coco, el Monito Espacial — producción 3D gratuita
 
-Este repositorio contiene el renderizador automático de un YouTube Short infantil de Coco. No publica en YouTube.
+Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herramientas gratuitas. **No publica en YouTube** y no requiere activar facturación ni comprar créditos.
 
-## Resultado esperado
+## Fuente de verdad técnica
 
-- Un MP4 final: `output/Coco-Short-60s-FINAL.mp4`.
-- 60 segundos, vertical 9:16, 1080×1920, 30 FPS.
-- 12 escenas consecutivas de 5 segundos.
-- Animación generada con **Wan 2.2 I2V 14B + Lightning LoRA**, mediante el Space público de Hugging Face `zerogpu-aoti/wan2-2-fp8da-aoti-faster`.
-- Continuidad visual: el último fotograma de cada escena se usa como referencia para la siguiente.
-- Voz en español mexicano con Edge TTS (Dalia), música original sintetizada, efectos sonoros originales sincronizados y subtítulos incrustados.
-- Validación final de duración, resolución, FPS y pista de audio.
+- **Motor principal:** Blender EEVEE con personaje procedural y animación por keyframes.
+- **Montaje y control:** FFmpeg / FFprobe.
+- **Voz principal:** Edge TTS, voz mexicana es-MX-DaliaNeural.
+- **Voz de respaldo:** espeak-ng local, si Edge TTS no responde o no tiene conexión.
+- **Música:** melodía original sintetizada localmente; no depende de una biblioteca comercial.
+- **Subtítulos:** SRT y subtítulos incrustados en el MP4.
+- **Generación IA externa:** opcional. Wan 2.2/Hugging Face se conserva como flujo manual experimental, nunca como requisito del render diario.
+- **Publicación:** desactivada.
 
-## Automatización
+## Producción automática
 
-Workflow: [Coco — Short final de 60 segundos (Wan 2.2)](.github/workflows/generate-coco-short-60s.yml)
+Workflow único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml).
 
-Se ejecuta cada 8 horas mediante GitHub Actions:
-- 00:30, 08:30 y 16:30, hora de Nuevo León (UTC-6).
-- También se ejecuta cuando se actualiza el workflow y admite ejecución manual desde Actions.
+- Programado una vez al día: 00:30, hora de Nuevo León (UTC-6).
+- Ejecución manual disponible desde GitHub Actions.
+- No se ejecuta por cada commit: evita consumir minutos gratuitos por cambios de código.
+- Concurrencia serializada: no cancela un render activo ni permite dos producciones simultáneas.
+- Límite máximo por ejecución: 90 minutos.
+- Los artefactos se conservan 30 días.
 
-Cada ejecución recupera el último artefacto no vencido, reutiliza las escenas válidas y genera únicamente las escenas faltantes. Si Hugging Face ZeroGPU rechaza una solicitud por cuota gratuita, el proceso registra la pausa, guarda el progreso y lo reanuda en el siguiente ciclo. La cuota gratuita es limitada: el horario programa intentos, no garantiza que cada intento pueda generar una escena.
+**Importante sobre el plan gratuito:** el horario es un intento, no una garantía de ejecución ni de render terminado. GitHub Actions tiene cuotas mensuales y el render 3D consume CPU. No existe una opción de nube gratuita, ilimitada y garantizada. Si la cuota de Actions se agota, la producción se reanuda cuando se restablezca; no se activa facturación automáticamente.
 
-## Secretos requeridos
+## Flujo de producción
 
-En **Settings → Secrets and variables → Actions**:
+1. Recupera el código y, si está disponible, la referencia privada de Coco.
+2. Valida sintaxis, dependencias y recursos.
+3. Crea el episodio a partir de la biblioteca narrativa.
+4. Renderiza la escena 3D con Blender.
+5. Comprueba duración, resolución, variación visual y tamaño del render.
+6. Genera voz. Si Edge TTS falla, utiliza espeak-ng sin conexión.
+7. Sintetiza música original y prepara subtítulos.
+8. Ensambla el MP4 vertical y valida video, audio, duración y FPS.
+9. Guarda el MP4, SRT, episodio y reporte de producción como artefacto.
 
-- `HF_TOKEN`: token de Hugging Face con acceso de lectura, para conectarse al Space.
-- `GH_READ_TOKEN`: token de GitHub con acceso de lectura al repositorio privado `andrepriv2009-del/coco-monito-espacial`, necesario para descargar la imagen de referencia `coco-referencia.webp`.
+## Salidas
 
-Los valores nunca deben guardarse en el código ni compartirse en mensajes.
+- `output/Coco-Short-60s-FINAL.mp4`: master vertical 1080×1920, 30 FPS, 60 segundos.
+- `output/subtitles.srt`: subtítulos editables.
+- `output/episode.json`: guion y metadatos del episodio.
+- `output/production-report.json`: validación técnica, motores usados y referencia disponible.
 
-## Archivos y seguimiento
+La señal definitiva de éxito es que el MP4 exista y pase las validaciones; que GitHub Actions marque el job como exitoso por sí solo no demuestra que el archivo sea correcto.
 
-- Generador: `scripts/generate_coco_short.py`.
-- Estado de cada intento: `output/render-status.json`.
-- Resumen legible: resumen del job en GitHub Actions.
-- Artefacto de recuperación: `Coco-Short-60s-build` (30 días).
-- Video final: `Coco-Short-60s-FINAL.mp4`.
+## Referencia visual y secretos
 
-**Importante:** una ejecución de Actions puede terminar correctamente aunque el render quede pausado por cuota. El indicador definitivo es `render-status.json` con `status: complete`, junto con la presencia del MP4 final y la validación de sus pistas.
+La referencia privada `coco-referencia.webp` es **opcional**: el render diario conserva la identidad mediante el diseño procedural versionado en `video/render_coco.py`. Si existe `GH_READ_TOKEN`, el workflow intenta descargarla con reintentos. Si no está disponible, no bloquea el render.
 
-## Límites y seguridad
+No guardar tokens, contraseñas ni claves en el repositorio. Si se utiliza el flujo manual de Hugging Face, `HF_TOKEN` debe configurarse como secreto solo si el usuario decide usar ese servicio.
 
-- No se requiere activar facturación, comprar créditos ni habilitar R2.
-- No se cambia a Blender ni a otro modelo: el generador de escenas es Wan 2.2 I2V 14B con Lightning LoRA.
-- La publicación en YouTube permanece desactivada; el resultado solo se guarda como artefacto descargable.
-- GitHub Actions no garantiza ejecución a una hora exacta y Hugging Face ZeroGPU tiene cuotas compartidas y limitadas.
+## Archivos principales
+
+- `video/render_coco.py`: escena, materiales, personaje y animación 3D.
+- `scripts/generate_daily_coco.py`: guion, render, voz, música, subtítulos, montaje y control de calidad.
+- `.github/workflows/coco-daily-production.yml`: único workflow automático.
+- `.github/workflows/generate-huggingface-video.yml`: herramienta manual experimental Wan 2.2, no usada por el pipeline diario.
+- `docs/PRODUCTION-ARCHITECTURE.md`: decisiones técnicas, riesgos y recuperación.
+
+## Límites conocidos y próximos hitos
+
+- El personaje actual está construido con formas 3D procedurales; todavía no es un rig de deformación completo con malla, dedos articulados y sincronía labial fonética.
+- La boca actual es una animación simple, no lip-sync real por fonemas.
+- La voz es generada por red cuando Edge TTS funciona; el respaldo local es más robótico.
+- La resolución final se amplía desde el render base 540×960 a 1080×1920; el escalado no añade detalle geométrico real.
+- El render puede tardar más que la ventana de Actions. La prioridad futura es guardar escenas y estado intermedio de forma persistente, para no repetir trabajo.
+- No se promete IA generativa ilimitada gratuita. Los modelos externos son reemplazables y nunca deben bloquear el motor principal.
+
