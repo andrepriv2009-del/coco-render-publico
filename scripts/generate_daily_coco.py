@@ -218,9 +218,9 @@ if len([entry for entry in srt_path.read_text(encoding="utf-8").split("\n\n") if
 subtitle_filter = (
     "scale=1080:1920:flags=lanczos,fps=30,"
     "subtitles=output/subtitles.srt:"
-    "force_style='FontName=DejaVu Sans,FontSize=10,PrimaryColour=&H00FFFFFF,"
+    "force_style='FontName=DejaVu Sans,FontSize=9,PrimaryColour=&H00FFFFFF,"
     "OutlineColour=&H00101830,BorderStyle=1,Outline=2,Shadow=1,"
-    "Alignment=2,MarginV=190,MarginL=110,MarginR=110'"
+    "Alignment=2,MarginV=240,MarginL=130,MarginR=130'"
 )
 run([
     "ffmpeg", "-y", "-i", str(BASE_VIDEO), "-i", str(voice), "-i", str(music_path),
