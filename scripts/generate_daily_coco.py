@@ -4,7 +4,8 @@ import os
 import subprocess
 import textwrap
 import wave
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from fractions import Fraction
 
@@ -22,7 +23,7 @@ TMP.mkdir(parents=True, exist_ok=True)
 
 WIDTH, HEIGHT, FPS, DURATION = 1080, 1920, 30, 60
 SLOT = 5
-DAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+DAY = datetime.now(ZoneInfo("America/Monterrey")).strftime("%Y-%m-%d")
 REFERENCE = Path("coco-referencia.webp")
 
 # 150 combinaciones de la misma premisa visual: Coco ayuda a una estrella perdida.
@@ -246,7 +247,7 @@ for index, line in enumerate(lines):
     if len(caption_lines) > 3:
         raise RuntimeError(f"La escena {index + 1} excede tres líneas de subtítulos.")
     srt_caption = "\n".join(caption_lines)
-    ass_caption = r"\N".join(caption_lines).replace("{", r"\\{").replace("}", r"\\}")
+    ass_caption = r"\N".join(caption_lines).replace("{", "\\{").replace("}", "\\}")
     srt_entries.append(
         f"{index + 1}\n{stamp(index * SLOT)} --> {stamp((index + 1) * SLOT)}\n{srt_caption}\n"
     )
@@ -339,7 +340,9 @@ report = {
     "narration_segments_rms": voice_rms,
     "final_audio_rms": round(final_rms, 1),
     "music": "original synthesized melody; no paid or licensed track",
-    "subtitles": "12 Spanish captions burned into the MP4 plus separate SRT",
+    "subtitles": "12 Spanish captions burned into the MP4 using positioned ASS plus separate SRT",
+    "subtitle_ass": ass_path.name,
+    "subtitle_layout": "bottom-center safe area at x=540,y=1640; manually wrapped to at most 3 lines",
     "animation": "Blender EEVEE procedural 3D character animation",
     "render_source": "540x960 at 15 fps; upscaled to 1080x1920 at 30 fps",
     "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
