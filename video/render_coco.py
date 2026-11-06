@@ -227,7 +227,7 @@ def scene_text(name,body,location,size,material):
     obj.rotation_euler=(radians(90),0,0)
     obj.data.materials.append(material)
     return obj
-scene_text("Título del episodio",episode_title,(0,-1.35,3.55),.23,gold)
+scene_text("Título del episodio",episode_title,(0,-1.35,3.65),.14,gold)
 scene_text("Nombre del invitado","CON "+guest_name.upper()[:18],(.85,-1.45,1.15),.12,white)
 guest_root=bpy.data.objects.new("INVITADO DEL EPISODIO — "+guest_name,None)
 scene.collection.objects.link(guest_root)
