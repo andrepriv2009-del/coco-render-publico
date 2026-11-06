@@ -49,7 +49,7 @@ jobs:
       - name: Validar sintaxis del pipeline
         run: |
           python -m py_compile scripts/generate_daily_coco.py video/render_coco.py
-          test "$(grep -c 'cron:' .github/workflows/coco-daily-production.yml)" -eq 1
+          test "$(grep -Ec '^    - cron:' .github/workflows/coco-daily-production.yml)" -eq 1
           echo "WORKFLOW_CONFIG_VALIDATED=1"
       - name: Generar episodio 3D, voz mexicana, música y subtítulos
         env:
