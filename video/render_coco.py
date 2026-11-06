@@ -401,6 +401,8 @@ for idx, arm in enumerate(arm_objects):
     shoulders.append(pivot)
 
 hips = [bpy.data.objects.get("Cadera izquierda"), bpy.data.objects.get("Cadera derecha")]
+head_obj = bpy.data.objects.get("Cabeza de Coco")
+dust_mat = mat("Polvo suave de carrera", (.48,.58,.43), rough=1, emission=.03)
 def key_root(frame, x, z, tilt=0.0):
     root.location = (x, 0, z)
     root.rotation_euler[1] = tilt
@@ -434,11 +436,35 @@ for beat, raw_line in enumerate(narration):
                 shoulder.keyframe_insert(data_path="rotation_euler",frame=f)
             bob = .10 if phase == 0 else .22
             key_root(f, -.65 + (f-start)/74*1.3, bob, -.13)
+            if head_obj:
+                head_obj.rotation_euler[1] = -.035 if phase == 0 else .045
+                head_obj.keyframe_insert(data_path="rotation_euler", frame=f)
+            # Secondary motion: slight stretch in flight and compression on foot contact.
+            root.scale = (1.0, 1.0, 1.035 if phase != 0 else .975)
+            root.keyframe_insert(data_path="scale", frame=f)
+        # Three staggered dust puffs make foot contact readable in the environment.
+        for puff_index in range(3):
+            puff = uv("Polvo de pisadas", (-.9 - puff_index*.34, -.55, -2.58), (.025,.025,.025), dust_mat, 12)
+            for pf, px, sc in [(start+puff_index*12, -.9-puff_index*.34, .02),
+                               (start+12+puff_index*12, -1.15-puff_index*.34, .20),
+                               (start+24+puff_index*12, -1.45-puff_index*.34, .015)]:
+                puff.location.x = px
+                puff.scale = (sc, sc*.7, sc)
+                puff.keyframe_insert(data_path="location", frame=pf)
+                puff.keyframe_insert(data_path="scale", frame=pf)
     elif jumping:
         key_root(start,-.25,0,0)
         key_root(start+12,-.25,.72,-.08)
         key_root(mid,.15,.95,.06)
         key_root(end,.35,0,0)
+        # Anticipation, airborne stretch, then a compressed landing pose.
+        root.scale = (1.0, 1.0, .88); root.keyframe_insert(data_path="scale", frame=start)
+        root.scale = (1.0, 1.0, 1.08); root.keyframe_insert(data_path="scale", frame=mid)
+        root.scale = (1.0, 1.0, .92); root.keyframe_insert(data_path="scale", frame=end)
+        if head_obj:
+            for f, a in [(start,0),(start+12,-.10),(mid,.08),(end,0)]:
+                head_obj.rotation_euler[1] = a
+                head_obj.keyframe_insert(data_path="rotation_euler", frame=f)
         for j, shoulder in enumerate(shoulders):
             for f,a in [(start,0),(start+12,-1.0),(mid,-.8),(end,.15)]:
                 shoulder.rotation_euler[1] = a if j == 0 else -a
@@ -498,6 +524,21 @@ for beat, raw_line in enumerate(narration):
     cam.keyframe_insert(data_path="location",frame=start)
     cam.keyframe_insert(data_path="location",frame=mid)
     cam.keyframe_insert(data_path="location",frame=end)
+    # Re-aim the lens at the acting character after every camera move.
+    target_x = 0.0 if is_run or is_jump else 0.15
+    target_z = -0.55 if is_jump else -0.72
+    for camera_frame in (start, mid, end):
+        cam.rotation_euler = (Vector((target_x, 0, target_z)) - cam.location).to_track_quat("-Z", "Y").to_euler()
+        cam.keyframe_insert(data_path="rotation_euler", frame=camera_frame)
+
+# Subtle wind gives the meadow independent environmental motion.
+for idx, blade in enumerate([o for o in bpy.data.objects if o.name == "Hierba del campo"]):
+    base_angle = blade.rotation_euler[1]
+    for frame, sway in [(1,0),(45,.10), (90,0), (135,-.10), (180,0), (225,.10), (270,0),
+                        (315,-.10),(360,0),(405,.10),(450,0),(495,-.10),(540,0),(585,.10),
+                        (630,0),(675,-.10),(720,0),(765,.10),(810,0),(855,-.10),(900,0)]:
+        blade.rotation_euler[1] = base_angle + sway * (1 if idx % 2 == 0 else -1)
+        blade.keyframe_insert(data_path="rotation_euler", frame=frame)
 
 # Foreground rocks slide past during running shots to make speed and travel legible.
 for idx, obj in enumerate([o for o in bpy.data.objects if o.name.startswith("Piedra del sendero")]):
