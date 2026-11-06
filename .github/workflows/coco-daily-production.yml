@@ -62,6 +62,7 @@ jobs:
           path: |
             output/Coco-Short-60s-FINAL.mp4
             output/subtitles.srt
+            output/subtitles.ass
             output/episode.json
             output/production-report.json
           if-no-files-found: error
