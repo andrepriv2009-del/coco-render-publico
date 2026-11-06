@@ -1,15 +1,11 @@
 name: Coco — Producción diaria automática
 on:
-  # Permite generar un episodio nuevo al actualizar el pipeline o su generador.
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/coco-daily-production.yml"
-      - "scripts/generate_daily_coco.py"
-      - "video/render_coco.py"
-  # 00:30 hora de Nuevo León (UTC-6). También permite despacho manual desde Actions.
+  # Tres intentos diarios: 00:30, 08:30 y 16:30 hora de Nuevo León (UTC-6).
+  # El render no se dispara con cada commit para evitar ejecuciones y gasto de cuota duplicados.
   schedule:
     - cron: "30 6 * * *"
+    - cron: "30 14 * * *"
+    - cron: "30 22 * * *"
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,20 +25,41 @@ jobs:
           GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
         run: |
           set -euo pipefail
-          test -n "$GH_READ_TOKEN" || { echo "::error::Falta el secreto GH_READ_TOKEN"; exit 1; }
-          curl --fail --silent --show-error -H "Authorization: Bearer $GH_READ_TOKEN" -H "Accept: application/vnd.github.raw+json" "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" -o coco-referencia.webp
-          test -s coco-referencia.webp
+          if [ -z "${GH_READ_TOKEN:-}" ]; then
+            echo "::warning::GH_READ_TOKEN no está configurado. Se usará el diseño procedural versionado en Blender."
+            exit 0
+          fi
+          if curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+            -H "Authorization: Bearer $GH_READ_TOKEN" \
+            -H "Accept: application/vnd.github.raw+json" \
+            "https://api.github.com/repos/andrepriv2009-del/coco-monito-espacial/contents/coco-referencia.webp?ref=main" \
+            -o coco-referencia.webp && [ -s coco-referencia.webp ]; then
+            echo "Referencia visual descargada correctamente."
+          else
+            rm -f coco-referencia.webp
+            echo "::warning::No se pudo descargar la referencia privada. Blender conservará la identidad mediante el diseño procedural versionado."
+          fi
       - name: Instalar Blender y herramientas gratuitas
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends blender ffmpeg libass9 fonts-dejavu-core libegl1 libgl1
+          sudo apt-get install -y --no-install-recommends blender ffmpeg libass9 fonts-dejavu-core libegl1 libgl1 espeak-ng
           blender --version | head -n 1
           ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
           python -m pip install --upgrade pip
           python -m pip install numpy pillow edge-tts
-      - name: Validar sintaxis del pipeline
-        run: python -m py_compile scripts/generate_daily_coco.py video/render_coco.py
+      - name: Validar sintaxis y configuración
+        run: |
+          python -m py_compile scripts/generate_daily_coco.py video/render_coco.py
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          workflow = yaml.safe_load(Path(".github/workflows/coco-daily-production.yml").read_text())
+          trigger = workflow.get("on", workflow.get(True, {}))
+          assert workflow.get("jobs", {}).get("produce"), "Falta el job de producción"
+          assert len(trigger.get("schedule", [])) == 3, "Se esperan tres horarios diarios"
+          print("WORKFLOW_CONFIG_VALIDATED=1")
+          PY
       - name: Generar episodio 3D, voz mexicana, música y subtítulos
         env:
           PYTHONUNBUFFERED: "1"
