@@ -121,16 +121,23 @@ parent(uv("Insignia estrella",(0,-.73,-1.53),(.075,.025,.075),gold,16))
 # Red suit piping down the front.
 for x in (-.38,.38):
     parent(curve("Costura roja traje",[(x,-.63,-1.05),(x*1.08,-.65,-1.38),(x,-.62,-1.72)],.025,red))
-# red cap: crown, brim, tiny rocket emblem
+# Bright red cap, kept simple to match Coco's reference silhouette.
 parent(uv("Gorra roja",(0,-.02,.91),(.86,.65,.34),red))
 parent(uv("Visera roja",(0,-.55,.77),(.72,.38,.12),red))
-parent(uv("Emblema cohete",(0,-.69,.99),(.13,.045,.17),gold,20))
-# backpack and rocket details behind shoulder
+parent(uv("Ajuste trasero gorra",(0,.57,.91),(.18,.045,.09),silver))
+# Silver rocket backpack with a camera-facing pod, red nose, blue porthole and exhaust.
 parent(uv("Mochila cohete",(0,.58,-.9),(.57,.35,.72),silver))
 for x in (-.4,.4):
  parent(cyl("Propulsor",(x,.59,-1.42),.16,.55,silver))
  parent(uv("Llama azul",(x,.59,-1.76),(.13,.15,.28),blue))
-# Rocket backpack silhouette details and glowing exhaust rings.
+# Make the miniature rocket unmistakable in the three-quarter portrait framing.
+parent(uv("Cápsula lateral del cohete",(.76,.24,-.92),(.34,.40,.62),silver))
+parent(uv("Punta roja del cohete",(.76,.24,-.36),(.27,.31,.22),red))
+parent(uv("Ventana azul del cohete",(1.075,-.02,-.91),(.055,.14,.14),blue))
+parent(uv("Aleta roja lateral",(1.00,.30,-1.12),(.12,.20,.24),red))
+parent(cyl("Boquilla lateral del cohete",(.84,.25,-1.48),.13,.42,silver))
+parent(uv("Escape azul lateral",(.84,.25,-1.73),(.11,.13,.19),blue))
+# Exhaust rings and red fins retain the familiar rocket silhouette.
 for x in (-.4,.4):
     parent(cyl("Aro de propulsor",(x,.59,-1.30),.19,.10,gold))
     parent(uv("Aleta cohete",(x*1.45,.56,-.83),(.16,.20,.34),red))
