@@ -1,6 +1,13 @@
 name: Coco — Producción diaria automática
 on:
-  # 00:30 hora de Nuevo León (UTC-6). Solo producción programada o despacho manual.
+  # Permite generar un episodio nuevo al actualizar el pipeline o su generador.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/coco-daily-production.yml"
+      - "scripts/generate_daily_coco.py"
+      - "video/render_coco.py"
+  # 00:30 hora de Nuevo León (UTC-6). También permite despacho manual desde Actions.
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
