@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "character_id": "coco",
+  "canonical_name": "Coco, el Monito Espacial",
+  "role": "protagonista",
+  "style": "animacion infantil 3D estilizada, formas suaves y redondeadas",
+  "identity_lock": {
+    "species": "monito",
+    "fur": "cafe calido",
+    "headwear": "gorra roja brillante",
+    "suit": "traje espacial blanco",
+    "backpack": "mochila cohete plateada con detalles rojos",
+    "face": "ojos grandes expresivos, hocico beige y sonrisa amable"
+  },
+  "performance": {
+    "tone": "alegre, curioso, jugueton y familiar",
+    "motion_quality": "clara, fluida, con anticipacion y seguimiento",
+    "expressions": ["alegria", "sorpresa", "curiosidad", "preocupacion suave", "orgullo", "ternura"]
+  },
+  "technical_source_of_truth": "video/render_coco.py",
+  "change_policy": "No alterar rasgos de identidad, gorra, traje ni mochila sin aprobacion explicita."
+}
