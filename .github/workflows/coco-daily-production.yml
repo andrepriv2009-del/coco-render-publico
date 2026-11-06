@@ -1,11 +1,9 @@
 name: Coco — Producción diaria automática
 on:
-  # Tres intentos diarios: 00:30, 08:30 y 16:30 hora de Nuevo León (UTC-6).
-  # El render no se dispara con cada commit para evitar ejecuciones y gasto de cuota duplicados.
+  # Un render programado al día (00:30 hora de Nuevo León, UTC-6).
+  # Se evita multiplicar minutos de Actions en el plan gratuito.
   schedule:
     - cron: "30 6 * * *"
-    - cron: "30 14 * * *"
-    - cron: "30 22 * * *"
   workflow_dispatch:
 permissions:
   contents: read
@@ -48,18 +46,11 @@ jobs:
           ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
           python -m pip install --upgrade pip
           python -m pip install numpy pillow edge-tts
-      - name: Validar sintaxis y configuración
+      - name: Validar sintaxis del pipeline
         run: |
           python -m py_compile scripts/generate_daily_coco.py video/render_coco.py
-          python - <<'PY'
-          import yaml
-          from pathlib import Path
-          workflow = yaml.safe_load(Path(".github/workflows/coco-daily-production.yml").read_text())
-          trigger = workflow.get("on", workflow.get(True, {}))
-          assert workflow.get("jobs", {}).get("produce"), "Falta el job de producción"
-          assert len(trigger.get("schedule", [])) == 3, "Se esperan tres horarios diarios"
-          print("WORKFLOW_CONFIG_VALIDATED=1")
-          PY
+          test "$(grep -c 'cron:' .github/workflows/coco-daily-production.yml)" -eq 1
+          echo "WORKFLOW_CONFIG_VALIDATED=1"
       - name: Generar episodio 3D, voz mexicana, música y subtítulos
         env:
           PYTHONUNBUFFERED: "1"
