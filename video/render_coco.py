@@ -343,6 +343,182 @@ for action in bpy.data.actions:
             key.handle_right.x *= 1.25
         fcurve.update()
 
+
+# STORY-DIRECTED ANIMATION PASS — actions and staging are driven by each narration beat.
+# The episode is split into 12 five-second shots; each line selects a physical action.
+narration = episode.get("narration", [])
+if not narration:
+    narration = [line.replace("COCO: ", "") for line in episode_script.splitlines() if line.startswith("COCO:")]
+narration = (narration + ["Coco mira a su alrededor"] * 12)[:12]
+
+# Build a readable alien meadow/field in the foreground, while preserving the space setting.
+field_mat = mat("Pradera alienígena", (.055,.24,.16), rough=.92)
+field = bpy.data.objects.new("Campo alienígena — suelo", bpy.data.meshes.new("Campo alienígena — malla"))
+scene.collection.objects.link(field)
+bpy.ops.mesh.primitive_plane_add(size=200, location=(0,0,-2.92))
+field = bpy.context.object
+field.name = "Campo alienígena — suelo"
+field.data.materials.append(field_mat)
+# Distant rolling mounds and tufts give the camera parallax and establish a real place.
+mound_mat = mat("Lomas verde esmeralda",(.08,.34,.23),rough=1)
+grass_mat = mat("Hierba luminosa",(.18,.62,.25),rough=.85,emission=.12)
+rock_mat = mat("Rocas del campo",(.22,.31,.39),metal=.12,rough=.82)
+for i in range(18):
+    x = -8.5 + i * 1.0
+    z = -2.72 + ((i * 7) % 5) * .035
+    mound = uv("Loma del campo",(x,3.5,z),(1.35,.45,.34),mound_mat,20)
+for i in range(42):
+    x = ((i * 37) % 170 - 85) / 10
+    y = -1.0 + ((i * 19) % 65) / 10
+    h = .18 + ((i * 11) % 7) * .035
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=.10, radius2=.015, depth=h, location=(x,y,-2.84+h/2))
+    blade = bpy.context.object
+    blade.name = "Hierba del campo"
+    blade.data.materials.append(grass_mat)
+    blade.rotation_euler[1] = ((i % 5)-2) * .12
+for i in range(10):
+    x = -7.5 + i * 1.65
+    rock = uv("Piedra del sendero",(x,-.2,-2.78),(.28+(i%3)*.08,.22,.16+(i%2)*.08),rock_mat,16)
+
+# Re-parent arms and hands to shoulder pivots so gestures rotate from the shoulder, not the center.
+arm_objects = [o for o in bpy.data.objects if o.name == "Brazo"]
+hand_objects = [o for o in bpy.data.objects if o.name == "Mano"]
+shoulders = []
+for idx, arm in enumerate(arm_objects):
+    side = -1 if idx == 0 else 1
+    pivot = bpy.data.objects.new("Control hombro " + str(idx), None)
+    scene.collection.objects.link(pivot)
+    pivot.parent = root
+    pivot.location = (side*.72, -.03, -.85)
+    arm_world = arm.matrix_world.copy()
+    arm.parent = pivot
+    arm.matrix_world = arm_world
+    if idx < len(hand_objects):
+        hand = hand_objects[idx]
+        hand_world = hand.matrix_world.copy()
+        hand.parent = pivot
+        hand.matrix_world = hand_world
+    shoulders.append(pivot)
+
+hips = [bpy.data.objects.get("Cadera izquierda"), bpy.data.objects.get("Cadera derecha")]
+def key_root(frame, x, z, tilt=0.0):
+    root.location = (x, 0, z)
+    root.rotation_euler[1] = tilt
+    root.keyframe_insert(data_path="location", frame=frame)
+    root.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+# Every 5-second narration beat becomes a distinct acting beat, with anticipation and follow-through.
+for beat, raw_line in enumerate(narration):
+    line = str(raw_line).lower()
+    start = 1 + beat * 75
+    mid = start + 37
+    end = min(start + 74, 900)
+    running = any(w in line for w in ["corre","corriendo","correr","bloquea","meteorito","cometa","despeja","siguen","guían","guian","regreso","ruta"])
+    jumping = any(w in line for w in ["salta","saltar","brinca","puente","cruza","cruzar"])
+    celebrating = any(w in line for w in ["celebran","misión cumplida","brilla","agradecimiento","hogar"])
+    pointing = any(w in line for w in ["pista","señal","senal","encuentra","observa","mira","descubre"])
+    activating = any(w in line for w in ["activa","ajusta","mochila","prepara"])
+    greeting = any(w in line for w in ["conoce","acompaña","amigo","juntos"])
+    searching = any(w in line for w in ["perdió","perdio","camino","escuchar","sonidos","buscan"])
+    if running:
+        # Run cycle: opposing legs and arms, torso bounce, forward lean, and actual travel.
+        for f, phase in [(start,0),(start+9,1),(start+18,0),(start+27,-1),(mid,0),(mid+9,1),(mid+18,0),(mid+27,-1),(end,0)]:
+            if hips[0]:
+                hips[0].rotation_euler[1] = .72 * phase
+                hips[0].keyframe_insert(data_path="rotation_euler",frame=f)
+            if hips[1]:
+                hips[1].rotation_euler[1] = -.72 * phase
+                hips[1].keyframe_insert(data_path="rotation_euler",frame=f)
+            for j, shoulder in enumerate(shoulders):
+                shoulder.rotation_euler[1] = (.68 * phase) * (1 if j == 0 else -1)
+                shoulder.keyframe_insert(data_path="rotation_euler",frame=f)
+            bob = .10 if phase == 0 else .22
+            key_root(f, -.65 + (f-start)/74*1.3, bob, -.13)
+    elif jumping:
+        key_root(start,-.25,0,0)
+        key_root(start+12,-.25,.72,-.08)
+        key_root(mid,.15,.95,.06)
+        key_root(end,.35,0,0)
+        for j, shoulder in enumerate(shoulders):
+            for f,a in [(start,0),(start+12,-1.0),(mid,-.8),(end,.15)]:
+                shoulder.rotation_euler[1] = a if j == 0 else -a
+                shoulder.keyframe_insert(data_path="rotation_euler",frame=f)
+    elif celebrating:
+        key_root(start,0,0,0)
+        for f,a in [(start,0),(start+12,-.85),(mid,-.95),(end,-.10)]:
+            for j, shoulder in enumerate(shoulders):
+                shoulder.rotation_euler[1] = a if j == 0 else -a
+                shoulder.keyframe_insert(data_path="rotation_euler",frame=f)
+            root.location.z = .10 if f == mid else 0
+            root.keyframe_insert(data_path="location",frame=f)
+    elif pointing or activating:
+        key_root(start,0,0,0)
+        for j, shoulder in enumerate(shoulders):
+            vals = [(start,0),(start+12, -.95 if j == 1 else .15),(mid,-.85 if j == 1 else .10),(end,0)]
+            for f,a in vals:
+                shoulder.rotation_euler[1] = a
+                shoulder.keyframe_insert(data_path="rotation_euler",frame=f)
+        # Look toward the clue with a slight head/body turn.
+        for f,a in [(start,0),(start+15,.16),(mid,.20),(end,0)]:
+            root.rotation_euler[2] = a
+            root.keyframe_insert(data_path="rotation_euler",frame=f)
+    elif greeting or searching:
+        key_root(start,0,0,0)
+        for j, shoulder in enumerate(shoulders):
+            for f,a in [(start,0),(start+15,.62 if j == 1 else -.25),(mid,.48 if j == 1 else -.15),(end,0)]:
+                shoulder.rotation_euler[1] = a
+                shoulder.keyframe_insert(data_path="rotation_euler",frame=f)
+        for f,a in [(start,0),(start+15,-.12),(mid,.12),(end,0)]:
+            root.rotation_euler[2] = a
+            root.keyframe_insert(data_path="rotation_euler",frame=f)
+    else:
+        # Listening / reacting: settle, glance, blink, and breathe rather than loop a walk.
+        key_root(start,0,0,0)
+        for f,z in [(start,0),(start+18,.08),(mid,.02),(end,0)]:
+            root.location.z = z
+            root.keyframe_insert(data_path="location",frame=f)
+        for f,a in [(start,0),(start+18,.12),(mid,-.10),(end,0)]:
+            root.rotation_euler[2] = a
+            root.keyframe_insert(data_path="rotation_euler",frame=f)
+
+# Camera follows the action and changes scale slightly between story beats.
+for beat, raw_line in enumerate(narration):
+    line = str(raw_line).lower()
+    start = 1 + beat * 75
+    mid = start + 37
+    end = min(start + 74, 900)
+    is_run = any(w in line for w in ["corre","corriendo","correr","bloquea","meteorito","cometa","despeja","ruta"])
+    is_jump = any(w in line for w in ["salta","brinca","puente","cruza"])
+    cam.data.ortho_scale = 7.6 if is_run or is_jump else (8.2 if beat % 2 == 0 else 8.6)
+    cam.data.keyframe_insert(data_path="ortho_scale",frame=start)
+    cam.data.keyframe_insert(data_path="ortho_scale",frame=mid)
+    cam.data.keyframe_insert(data_path="ortho_scale",frame=end)
+    cam.location.x = 3.5 if is_run else (4.2 if beat % 2 else 3.8)
+    cam.location.z = 1.15 if is_jump else (1.0 if is_run else .85)
+    cam.keyframe_insert(data_path="location",frame=start)
+    cam.keyframe_insert(data_path="location",frame=mid)
+    cam.keyframe_insert(data_path="location",frame=end)
+
+# Foreground rocks slide past during running shots to make speed and travel legible.
+for idx, obj in enumerate([o for o in bpy.data.objects if o.name.startswith("Piedra del sendero")]):
+    for beat, raw_line in enumerate(narration):
+        line = str(raw_line).lower()
+        if any(w in line for w in ["corre","corriendo","correr","ruta","despeja"]):
+            a = 1 + beat*75
+            b = min(a+74,900)
+            base_x = obj.location.x
+            obj.location.x = base_x + 1.8
+            obj.keyframe_insert(data_path="location",frame=a)
+            obj.location.x = base_x - 2.2
+            obj.keyframe_insert(data_path="location",frame=b)
+
+# Make action beats feel intentional: smooth arcs, but retain crisp contact and take-off timing.
+for obj in bpy.data.objects:
+    if obj.animation_data and obj.animation_data.action:
+        for fc in obj.animation_data.action.fcurves:
+            for key in fc.keyframe_points:
+                key.interpolation = "BEZIER"
+
 scene.render.filepath=OUT+"/coco-base.mp4"
 scene.frame_set(1)
 bpy.ops.render.render(animation=True)
