@@ -56,7 +56,7 @@ def cyl(name,loc,radius,depth,material,rot=(0,0,0)):
  o=bpy.context.object;o.name=name;o.data.materials.append(material);bpy.ops.object.shade_smooth();return o
 # Camera and cinematic lighting
 bpy.ops.object.camera_add(location=(4,-20,1.0))
-cam=bpy.context.object; cam.rotation_euler=(Vector((0,0,0))-cam.location).to_track_quat("-Z","Y").to_euler(); cam.data.type="ORTHO";cam.data.ortho_scale=9.2;scene.camera=cam
+cam=bpy.context.object; cam.rotation_euler=(Vector((0,0,0))-cam.location).to_track_quat("-Z","Y").to_euler(); cam.data.type="ORTHO";cam.data.ortho_scale=8.6;scene.camera=cam
 def area(name,loc,power,color,size):
  bpy.ops.object.light_add(type="AREA",location=loc); l=bpy.context.object;l.name=name;l.data.energy=power;l.data.color=color;l.data.shape="DISK";l.data.size=size
  l.rotation_euler=(Vector((0,0,0))-l.location).to_track_quat("-Z","Y").to_euler()
@@ -69,9 +69,16 @@ for i in range(105):
  x=((i*73)%191-95)/12; z=((i*47)%157-78)/12
  s=.025+((i*13)%8)*.009
  uv("Estrella de fondo",(x,3.5,z),(s,s,s),gold if i%11==0 else white,12)
-# Decorative distant planets
+# Layered storybook space set: luminous planets, orbital rings and colorful nebulae.
 uv("Planeta azul",(5,1,-4),(1.5,.6,1.5),planetmat)
 uv("Luna",( -5,2,4),(.85,.45,.85),silver)
+nebula_a=uv("Nebulosa coral",(-4.8,4.2,-1.0),(2.8,.22,2.0),mat("Nebulosa coral material",(.24,.035,.16),rough=1,emission=.18))
+nebula_b=uv("Nebulosa azul",(4.5,4.5,1.8),(2.6,.2,1.7),mat("Nebulosa azul material",(.025,.10,.30),rough=1,emission=.22))
+for name,loc,major,minor,material,rot in [("Órbita dorada",(5,1,-4),2.0,.045,gold,(radians(62),0,radians(-20))),("Órbita turquesa",(-5,1,4),1.15,.035,blue,(radians(68),0,radians(18)))]:
+    bpy.ops.mesh.primitive_torus_add(major_radius=major,minor_radius=minor,major_segments=72,minor_segments=12,location=loc)
+    orbit=bpy.context.object;orbit.name=name;orbit.data.materials.append(material);orbit.rotation_euler=rot
+    orbit.keyframe_insert(data_path="rotation_euler",frame=1)
+    orbit.rotation_euler[2]+=radians(24);orbit.keyframe_insert(data_path="rotation_euler",frame=720)
 # Coco rig built from carefully layered rounded forms
 root=bpy.data.objects.new("COCO_RIG",None);scene.collection.objects.link(root)
 def parent(o):o.parent=root;return o
@@ -166,7 +173,7 @@ for pupil in pupils:
         pupil.location.x=base_x+dx
         pupil.keyframe_insert(data_path="location",frame=f)
 # Cinematic camera push-in and pull-back during the adventure.
-for f,scale in [(1,9.2),(96,8.6),(216,8.2),(360,8.6),(504,8.2),(624,8.6),(720,9.0)]:
+for f,scale in [(1,8.6),(96,8.2),(216,7.9),(360,8.2),(504,7.9),(624,8.2),(720,8.5)]:
     cam.data.ortho_scale=scale; cam.data.keyframe_insert(data_path="ortho_scale",frame=f)
 # Animate root movement and gentle bob
 for f,loc in [(1,(-.65,0,-.15)),(144,(-.4,0,.05)),(288,(.45,0,.12)),(432,(.65,0,-.08)),(576,(0,0,.05)),(720,(-.15,0,0))]:
@@ -227,8 +234,7 @@ def scene_text(name,body,location,size,material):
     obj.rotation_euler=(radians(90),0,0)
     obj.data.materials.append(material)
     return obj
-scene_text("Título del episodio",episode_title,(0,-1.35,3.65),.14,gold)
-scene_text("Nombre del invitado","CON "+guest_name.upper()[:18],(2.05,-1.45,.85),.10,white)
+# No floating labels: narration/subtitles carry the story without covering Coco.
 guest_root=bpy.data.objects.new("INVITADO DEL EPISODIO — "+guest_name,None)
 scene.collection.objects.link(guest_root)
 guest_root.location=(2.05,-.55,-.65)
@@ -316,6 +322,12 @@ elif "lila" in guest_key:
 for frame,loc in [(1,(2.7,-.55,-.85)),(120,(2.05,-.55,-.65)),(360,(1.9,-.55,-.52)),(540,(2.15,-.55,-.62)),(720,(2.05,-.55,-.65))]:
     guest_root.location=loc
     guest_root.keyframe_insert(data_path="location",frame=frame)
+# The guest reacts to the adventure instead of remaining a static prop.
+for frame,angle,scale in [(1,-.12,.88),(90,.10,1.0),(180,-.08,1.04),(270,.14,.98),(360,-.10,1.03),(450,.12,.98),(540,-.08,1.04),(630,.10,1.0),(720,-.12,.92)]:
+    guest_root.rotation_euler[1]=angle
+    guest_root.keyframe_insert(data_path="rotation_euler",frame=frame)
+    guest_root.scale=(scale,scale,scale)
+    guest_root.keyframe_insert(data_path="scale",frame=frame)
 if guest_root.animation_data and guest_root.animation_data.action:
     for fc in guest_root.animation_data.action.fcurves:
         for key in fc.keyframe_points:
