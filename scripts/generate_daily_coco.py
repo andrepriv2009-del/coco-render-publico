@@ -118,13 +118,19 @@ else:
 
 run_number = int(os.environ.get("GITHUB_RUN_NUMBER", "0") or 0)
 serial = run_number if run_number > 0 else int(DAY.replace("-", ""))
-story_index = (serial - 1) % len(STORY_SPECS)
+# Paso coprimo para recorrer las 150 combinaciones sin agrupar episodios por el mismo invitado/obstáculo.
+STORY_ROTATION_STEP = 37
+if math.gcd(STORY_ROTATION_STEP, len(STORY_SPECS)) != 1:
+    raise RuntimeError("El paso de rotación debe ser coprimo con el tamaño de la biblioteca.")
+story_index = ((serial - 1) * STORY_ROTATION_STEP) % len(STORY_SPECS)
 title, lines, friend_name, friend_description = make_story(*STORY_SPECS[story_index], serial)
 
 episode = {
     "id": f"coco-{serial:04d}",
     "date": DAY,
     "serial": serial,
+    "story_index": story_index,
+    "story_rotation_step": STORY_ROTATION_STEP,
     "title": title,
     "script": (
         f"FICHA DE PERSONAJE INVITADO — {friend_name}\n"
@@ -350,7 +356,7 @@ report = {
     "reference_image": {"file": REFERENCE.name, "dimensions": reference_size, "downloaded": reference_downloaded, "required": False},
     "identity_source": "Versioned procedural Blender character; private reference is optional.",
     "story_library": len(STORY_SPECS),
-    "story_rotation": "150 narrative combinations before rotation; serial is unique per workflow run",
+    "story_rotation": f"150 unique combinations; coprime permutation step={STORY_ROTATION_STEP} changes guest, destination, obstacle and solution between adjacent runs",
     "status": "verified",
 }
 (OUT / "production-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
