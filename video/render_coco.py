@@ -567,15 +567,24 @@ for obj in bpy.data.objects:
             for key in fc.keyframe_points:
                 key.interpolation = "BEZIER"
 
-# Convert every animated channel from the 15 fps blocking timeline to native 30 fps.
-# Doubling keyframe positions preserves the action timing while rendering 1800 unique frames.
-for obj in bpy.data.objects:
-    if obj.animation_data and obj.animation_data.action:
-        for fc in obj.animation_data.action.fcurves:
-            for key in fc.keyframe_points:
-                key.co.x *= 2.0
-                key.handle_left.x *= 2.0
-                key.handle_right.x *= 2.0
+# Convert every animated datablock, including camera optics, to native 30 fps.
+# Doubling keyframe positions preserves the 60-second blocking while rendering 1800 unique frames.
+animated_datablocks = (
+    list(bpy.data.objects) + list(bpy.data.cameras) + list(bpy.data.lights)
+    + list(bpy.data.materials) + list(bpy.data.worlds) + list(bpy.data.scenes)
+)
+retimed_actions = set()
+for datablock in animated_datablocks:
+    animation_data = getattr(datablock, "animation_data", None)
+    action = animation_data.action if animation_data else None
+    if action is None or action.as_pointer() in retimed_actions:
+        continue
+    retimed_actions.add(action.as_pointer())
+    for fc in action.fcurves:
+        for key in fc.keyframe_points:
+            key.co.x *= 2.0
+            key.handle_left.x *= 2.0
+            key.handle_right.x *= 2.0
 
 scene.render.filepath=OUT+"/coco-base.mp4"
 scene.frame_set(1)
