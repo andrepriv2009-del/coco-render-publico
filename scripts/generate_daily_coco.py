@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import re
 import subprocess
 import textwrap
 import wave
@@ -297,7 +298,7 @@ run([
     "ffmpeg", "-y", "-i", str(BASE_VIDEO), "-i", str(voice), "-i", str(music_path),
     "-filter_complex",
     "[1:a]volume=1.0[v];[2:a]volume=0.18[m];"
-    "[v][m]amix=inputs=2:duration=longest:dropout_transition=0,alimiter=limit=0.95[a]",
+    "[v][m]amix=inputs=2:duration=longest:dropout_transition=0,loudnorm=I=-16:TP=-1.5:LRA=7[a]",
     "-vf", subtitle_filter,
     "-map", "0:v", "-map", "[a]", "-t", str(DURATION),
     "-metadata", f"title={title}",
@@ -332,6 +333,28 @@ final_rms = float(np.sqrt(np.mean(final_samples * final_samples))) if final_samp
 if final_rms < 100:
     raise RuntimeError(f"La pista de audio final parece vacía (RMS={final_rms:.1f}).")
 
+# Measure the encoded mix with EBU R128; reject a technically present but too-quiet track.
+loudness_check = subprocess.run(
+    ["ffmpeg", "-hide_banner", "-nostats", "-i", str(FINAL_VIDEO), "-vn",
+     "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"],
+    check=True, capture_output=True, text=True,
+)
+loudness_log = loudness_check.stderr
+integrated_match = re.search(
+    r"Integrated loudness:\\s*I:\\s*(-?\\d+(?:\\.\\d+)?) LUFS", loudness_log
+)
+true_peak_match = re.search(
+    r"True peak:\\s*Peak:\\s*(-?\\d+(?:\\.\\d+)?) dBFS", loudness_log
+)
+if not integrated_match or not true_peak_match:
+    raise RuntimeError("FFmpeg no devolvió mediciones EBU R128 completas.")
+integrated_lufs = float(integrated_match.group(1))
+true_peak_dbfs = float(true_peak_match.group(1))
+if not -18.0 <= integrated_lufs <= -14.0:
+    raise RuntimeError(f"Volumen integrado fuera del objetivo: {integrated_lufs:.1f} LUFS.")
+if true_peak_dbfs > -1.0:
+    raise RuntimeError(f"True peak demasiado alto: {true_peak_dbfs:.1f} dBFS.")
+
 report = {
     "date": DAY,
     "episode_serial": serial,
@@ -345,6 +368,9 @@ report = {
     "narration_voice": sorted(set(voice_engines)),
     "narration_segments_rms": voice_rms,
     "final_audio_rms": round(final_rms, 1),
+    "integrated_loudness_lufs": round(integrated_lufs, 1),
+    "true_peak_dbfs": round(true_peak_dbfs, 1),
+    "loudness_target_lufs": -16.0,
     "music": "original synthesized melody; no paid or licensed track",
     "subtitles": "12 Spanish captions burned into the MP4 using positioned ASS plus separate SRT",
     "subtitle_ass": ass_path.name,
