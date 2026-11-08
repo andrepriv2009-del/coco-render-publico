@@ -156,8 +156,17 @@ base_probe = json.loads(subprocess.check_output(
 ))
 base_video = next(s for s in base_probe["streams"] if s.get("codec_type") == "video")
 base_duration = float(base_probe["format"]["duration"])
-if not (59.5 <= base_duration <= 60.5 and base_video.get("width") == 540 and base_video.get("height") == 960):
-    raise RuntimeError(f"El render 3D base no cumple 60 s y 540x960: {base_duration}s, {base_video.get('width')}x{base_video.get('height')}")
+base_fps = float(Fraction(base_video.get("avg_frame_rate", "0/1")))
+if not (
+    59.5 <= base_duration <= 60.5
+    and base_video.get("width") == 540
+    and base_video.get("height") == 960
+    and abs(base_fps - FPS) <= 0.01
+):
+    raise RuntimeError(
+        f"El render 3D base no cumple 60 s, 540x960 y 30 fps: "
+        f"{base_duration}s, {base_video.get('width')}x{base_video.get('height')}, {base_fps} fps"
+    )
 motion_hashes = [frame_hash(BASE_VIDEO, t) for t in (2, 12, 22, 32, 42, 52)]
 if len(set(motion_hashes)) < 4:
     raise RuntimeError("La validación detectó muy poco cambio visual entre escenas del render 3D.")
@@ -376,7 +385,7 @@ report = {
     "subtitle_ass": ass_path.name,
     "subtitle_layout": "bottom-center safe area at x=540,y=1640; manually wrapped to at most 3 lines",
     "animation": "Blender EEVEE procedural 3D character animation",
-    "render_source": "540x960 at 15 fps; upscaled to 1080x1920 at 30 fps",
+    "render_source": "540x960 at native 30 fps; upscaled to 1080x1920 at 30 fps",
     "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
     "character_design": "brown monkey, bright red cap, white astronaut suit, silver rocket backpack; procedural adaptation of the official reference's key identifiers",
     "reference_image": {"file": REFERENCE.name, "dimensions": reference_size, "downloaded": reference_downloaded, "required": False},
