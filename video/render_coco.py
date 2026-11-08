@@ -11,11 +11,11 @@ scene.eevee.use_gtao=True
 scene.eevee.gtao_distance=3
 scene.eevee.gtao_factor=1.35
 scene.render.resolution_x=720; scene.render.resolution_y=1280; scene.render.resolution_percentage=75
-# Free CPU-render profile: 540x960 at 15 fps, then upscale to 1080x1920/30 fps.
-# Motion keyframes are stretched below so the animation still lasts exactly 60 seconds.
+# Free CPU-render profile: 540x960 at native 30 fps, then upscale to 1080x1920/30 fps.
+# The existing blocking animation is retimed below to preserve its 60-second duration.
 if hasattr(scene.eevee, "taa_render_samples"):
  scene.eevee.taa_render_samples=8
-scene.render.fps=15; scene.frame_start=1; scene.frame_end=900
+scene.render.fps=30; scene.frame_start=1; scene.frame_end=1800
 scene.render.image_settings.file_format="FFMPEG"
 scene.render.ffmpeg.format="MPEG4"
 scene.render.ffmpeg.codec="H264"
@@ -566,6 +566,16 @@ for obj in bpy.data.objects:
         for fc in obj.animation_data.action.fcurves:
             for key in fc.keyframe_points:
                 key.interpolation = "BEZIER"
+
+# Convert every animated channel from the 15 fps blocking timeline to native 30 fps.
+# Doubling keyframe positions preserves the action timing while rendering 1800 unique frames.
+for obj in bpy.data.objects:
+    if obj.animation_data and obj.animation_data.action:
+        for fc in obj.animation_data.action.fcurves:
+            for key in fc.keyframe_points:
+                key.co.x *= 2.0
+                key.handle_left.x *= 2.0
+                key.handle_right.x *= 2.0
 
 scene.render.filepath=OUT+"/coco-base.mp4"
 scene.frame_set(1)
