@@ -341,10 +341,10 @@ loudness_check = subprocess.run(
 )
 loudness_log = loudness_check.stderr
 integrated_match = re.search(
-    r"Integrated loudness:\\s*I:\\s*(-?\\d+(?:\\.\\d+)?) LUFS", loudness_log
+    r"Integrated loudness:\s*I:\s*(-?\d+(?:\.\d+)?) LUFS", loudness_log
 )
 true_peak_match = re.search(
-    r"True peak:\\s*Peak:\\s*(-?\\d+(?:\\.\\d+)?) dBFS", loudness_log
+    r"True peak:\s*Peak:\s*(-?\d+(?:\.\d+)?) dBFS", loudness_log
 )
 if not integrated_match or not true_peak_match:
     raise RuntimeError("FFmpeg no devolvió mediciones EBU R128 completas.")
