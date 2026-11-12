@@ -18,7 +18,7 @@ permissions:
 concurrency:
   # Separar la producción con publicación automática de ejecuciones anteriores atascadas.
   group: coco-daily-production-autopublish
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   produce:
     runs-on: ubuntu-latest
