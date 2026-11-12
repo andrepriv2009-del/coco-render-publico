@@ -172,6 +172,7 @@ if len(set(motion_hashes)) < 4:
     raise RuntimeError("La validación detectó muy poco cambio visual entre escenas del render 3D.")
 print("BLENDER_3D_RENDER_VALIDATED=1", flush=True)
 
+# Production profile v2 — Wan 2.2 optional hero shot + deterministic Blender fallback.
 # Optional hybrid shot: one Wan 2.2 Lightning clip per daily episode.
 # Hugging Face ZeroGPU has a small free daily quota, so it is deliberately
 # limited to ONE short hero shot. Blender remains the reliable full-length fallback.
