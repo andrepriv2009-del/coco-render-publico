@@ -159,12 +159,12 @@ base_duration = float(base_probe["format"]["duration"])
 base_fps = float(Fraction(base_video.get("avg_frame_rate", "0/1")))
 if not (
     59.5 <= base_duration <= 60.5
-    and base_video.get("width") == 540
-    and base_video.get("height") == 960
+    and base_video.get("width") == 720
+    and base_video.get("height") == 1280
     and abs(base_fps - FPS) <= 0.01
 ):
     raise RuntimeError(
-        f"El render 3D base no cumple 60 s, 540x960 y 30 fps: "
+        f"El render 3D base no cumple 60 s, 720x1280 y 30 fps: "
         f"{base_duration}s, {base_video.get('width')}x{base_video.get('height')}, {base_fps} fps"
     )
 motion_hashes = [frame_hash(BASE_VIDEO, t) for t in (2, 12, 22, 32, 42, 52)]
@@ -312,7 +312,7 @@ run([
     "-map", "0:v", "-map", "[a]", "-t", str(DURATION),
     "-metadata", f"title={title}",
     "-metadata", "comment=Coco, el Monito Espacial | animación 3D diaria",
-    "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+    "-c:v", "libx264", "-preset", "medium", "-crf", "17",
     "-r", str(FPS), "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
     str(FINAL_VIDEO),
@@ -385,7 +385,7 @@ report = {
     "subtitle_ass": ass_path.name,
     "subtitle_layout": "bottom-center safe area at x=540,y=1640; manually wrapped to at most 3 lines",
     "animation": "Blender EEVEE procedural 3D character animation",
-    "render_source": "540x960 at native 30 fps; upscaled to 1080x1920 at 30 fps",
+    "render_source": "720x1280 at native 30 fps with 24 EEVEE temporal samples; upscaled to 1080x1920 at 30 fps",
     "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
     "character_design": "brown monkey, bright red cap, white astronaut suit, silver rocket backpack; procedural adaptation of the official reference's key identifiers",
     "reference_image": {"file": REFERENCE.name, "dimensions": reference_size, "downloaded": reference_downloaded, "required": False},
