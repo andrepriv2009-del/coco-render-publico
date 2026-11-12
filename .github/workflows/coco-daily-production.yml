@@ -52,7 +52,7 @@ jobs:
           blender --version | head -n 1
           ffmpeg -hide_banner -filters 2>&1 | grep -q subtitles
           python -m pip install --upgrade pip
-          python -m pip install numpy pillow edge-tts
+          python -m pip install numpy pillow edge-tts gradio_client
       - name: Validar sintaxis del pipeline
         run: |
           python -m py_compile scripts/generate_daily_coco.py video/render_coco.py
@@ -61,6 +61,7 @@ jobs:
       - name: Generar episodio 3D, voz mexicana, música y subtítulos
         env:
           PYTHONUNBUFFERED: "1"
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python scripts/generate_daily_coco.py
       - name: Guardar MP4, SRT, episodio y reporte
         uses: actions/upload-artifact@v4
