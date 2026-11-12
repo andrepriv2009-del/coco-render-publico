@@ -5,6 +5,13 @@ on:
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
+  # Ejecutar una producción al actualizar el motor visual, sin depender del equipo local.
+  push:
+    branches: [main]
+    paths:
+      - "video/render_coco.py"
+      - "scripts/generate_daily_coco.py"
+      - ".github/workflows/coco-daily-production.yml":
 permissions:
   contents: read
   actions: read
