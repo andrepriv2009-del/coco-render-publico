@@ -1,0 +1,22 @@
+name: Coco public runner smoke test
+on:
+  push:
+    paths:
+      - ".github/workflows/runner-smoke-test.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runner-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm runner starts
+        run: |
+          echo "RUNNER_STARTED=1"
+          echo "REPOSITORY=$GITHUB_REPOSITORY"
+          echo "EVENT=$GITHUB_EVENT_NAME"
+          echo "OS=$(uname -s)"
+          echo "UTC=$(date -u +%FT%TZ)"
+          test "$GITHUB_REPOSITORY" = "andrepriv2009-del/coco-render-publico"
+          echo "SMOKE_TEST=PASS"
