@@ -11,7 +11,7 @@ on:
     paths:
       - "video/render_coco.py"
       - "scripts/generate_daily_coco.py"
-      - ".github/workflows/coco-daily-production.yml":
+      - ".github/workflows/coco-daily-production.yml"
 permissions:
   contents: read
   actions: read
