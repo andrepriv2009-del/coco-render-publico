@@ -246,7 +246,7 @@ if os.environ.get("HF_TOKEN", "").strip():
         normalize_segment(original_video, part_c, 5.5, 54.5)
         concat_list = TMP / "hybrid-list.txt"
         concat_list.write_text(
-            "".join(f"file '{p.resolve()}'\\n" for p in (part_a, part_b, part_c)),
+            "".join(f"file '{p.resolve()}'\n" for p in (part_a, part_b, part_c)),
             encoding="utf-8",
         )
         hybrid = TMP / "coco-base-hybrid.mp4"
