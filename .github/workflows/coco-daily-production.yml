@@ -76,3 +76,25 @@ jobs:
             output/production-report.json
           if-no-files-found: error
           retention-days: 30
+      - name: Publicar automáticamente el MP4 en YouTube
+        env:
+          GH_ACTION_TOKEN: ${{ github.token }}
+          WORKER_URL: https://coco-monito-espacial.andrepriv2009.workers.dev
+        run: |
+          set -euo pipefail
+          test -s output/Coco-Short-60s-FINAL.mp4
+          EPISODE_ID="$(python -c 'import json; print(json.load(open("output/episode.json", encoding="utf-8"))["id"])')"
+          VIDEO_TITLE="$(python -c 'import json; print(json.load(open("output/episode.json", encoding="utf-8"))["title"])')"
+          RESPONSE="$(curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --retry-delay 5 --max-time 900 \
+            -X POST "${WORKER_URL}/youtube/auto-upload" \
+            -H "Authorization: Bearer ${GH_ACTION_TOKEN}" \
+            -H "X-GitHub-Run-Id: ${GITHUB_RUN_ID}" \
+            -H "X-GitHub-Run-SHA: ${GITHUB_SHA}" \
+            -H "X-Episode-Id: ${EPISODE_ID}" \
+            -H "X-Video-Title: ${VIDEO_TITLE}" \
+            -H "Content-Type: video/mp4" \
+            --data-binary "@output/Coco-Short-60s-FINAL.mp4")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | jq -e '.uploaded == true' >/dev/null
+          echo "YOUTUBE_AUTO_UPLOAD_CONFIRMED=1"
