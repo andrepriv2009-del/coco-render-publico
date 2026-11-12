@@ -172,6 +172,111 @@ if len(set(motion_hashes)) < 4:
     raise RuntimeError("La validación detectó muy poco cambio visual entre escenas del render 3D.")
 print("BLENDER_3D_RENDER_VALIDATED=1", flush=True)
 
+# Optional hybrid shot: one Wan 2.2 Lightning clip per daily episode.
+# Hugging Face ZeroGPU has a small free daily quota, so it is deliberately
+# limited to ONE short hero shot. Blender remains the reliable full-length fallback.
+WAN_STATUS = "not_configured"
+if os.environ.get("HF_TOKEN", "").strip():
+    try:
+        from gradio_client import Client, handle_file
+        import shutil
+
+        print("WAN_ENHANCEMENT_START=1", flush=True)
+        wan_reference = TMP / "wan-reference.png"
+        wan_raw = TMP / "wan-raw.mp4"
+        wan_clip = TMP / "wan-normalized.mp4"
+        original_video = BASE_VIDEO
+        run(["ffmpeg", "-y", "-ss", "2", "-i", str(original_video),
+             "-frames:v", "1", "-q:v", "2", str(wan_reference)], quiet=True)
+        client = Client("zerogpu-aoti/wan2-2-fp8da-aoti-faster",
+                        token=os.environ["HF_TOKEN"].strip())
+        wan_prompt = (
+            "Animate the exact same friendly brown monkey astronaut from the input image. "
+            "Preserve his bright red cap, white astronaut suit and small silver rocket backpack. "
+            "He turns toward the camera, smiles, waves, and makes a small joyful zero-gravity bounce. "
+            "Keep the same character identity and outfit throughout, smooth natural full-body motion, "
+            "cinematic stylized 3D family animation, stable camera, colorful spaceship interior."
+        )
+        result = client.predict(
+            input_image=handle_file(str(wan_reference)),
+            prompt=wan_prompt,
+            steps=4,
+            negative_prompt=(
+                "low quality, flicker, jitter, deformed face, extra limbs, changed clothes, "
+                "missing red cap, missing rocket backpack, text, watermark, scene cuts"
+            ),
+            duration_seconds=3.5,
+            guidance_scale=1,
+            guidance_scale_2=1,
+            seed=serial,
+            randomize_seed=False,
+            api_name="/generate_video",
+        )
+        video_path = result[0] if isinstance(result, (tuple, list)) else result
+        if isinstance(video_path, dict):
+            video_path = video_path.get("path") or video_path.get("name")
+        if not video_path or not Path(video_path).is_file():
+            raise RuntimeError(f"Wan no devolvió un MP4 válido: {video_path!r}")
+        shutil.copy2(video_path, wan_raw)
+
+        # Replace only seconds 2.0–5.5 of the Blender master. Keep the complete
+        # episode at 60 seconds and normalize all segments to the same H.264 profile.
+        part_a = TMP / "hybrid-a.mp4"
+        part_b = TMP / "hybrid-b.mp4"
+        part_c = TMP / "hybrid-c.mp4"
+        def normalize_segment(source, destination, start=None, duration=None):
+            command = ["ffmpeg", "-y"]
+            if start is not None:
+                command += ["-ss", str(start)]
+            command += ["-i", str(source)]
+            if duration is not None:
+                command += ["-t", str(duration)]
+            command += [
+                "-an", "-vf",
+                "fps=30,scale=720:1280:force_original_aspect_ratio=increase,"
+                "crop=720:1280,setsar=1",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
+                "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart",
+                str(destination),
+            ]
+            run(command, quiet=True)
+
+        normalize_segment(original_video, part_a, 0, 2.0)
+        normalize_segment(wan_raw, part_b, None, 3.5)
+        normalize_segment(original_video, part_c, 5.5, 54.5)
+        concat_list = TMP / "hybrid-list.txt"
+        concat_list.write_text(
+            "".join(f"file '{p.resolve()}'\\n" for p in (part_a, part_b, part_c)),
+            encoding="utf-8",
+        )
+        hybrid = TMP / "coco-base-hybrid.mp4"
+        run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i",
+             str(concat_list), "-c", "copy", str(hybrid)], quiet=True)
+        if not hybrid.is_file() or hybrid.stat().st_size < 100_000:
+            raise RuntimeError("El montaje híbrido Wan + Blender no produjo un MP4 válido.")
+        BASE_VIDEO = hybrid
+        WAN_STATUS = "one_3.5s_wan22_lightning_shot"
+        print("WAN_ENHANCEMENT_VALIDATED=1", flush=True)
+    except Exception as exc:
+        WAN_STATUS = f"fallback_blender: {type(exc).__name__}: {exc}"
+        BASE_VIDEO = TMP / "coco-base.mp4"
+        print(f"WAN_ENHANCEMENT_FALLBACK={WAN_STATUS}", flush=True)
+else:
+    WAN_STATUS = "skipped_no_HF_TOKEN"
+    print("WAN_ENHANCEMENT_SKIPPED=HF_TOKEN no configurado; se conserva Blender.", flush=True)
+
+# Validate the final base timeline after optional enhancement.
+hybrid_probe = json.loads(subprocess.check_output(
+    ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(BASE_VIDEO)],
+    text=True,
+))
+hybrid_stream = next(st for st in hybrid_probe["streams"] if st.get("codec_type") == "video")
+hybrid_duration = float(hybrid_probe["format"]["duration"])
+if not (59.5 <= hybrid_duration <= 60.5 and hybrid_stream.get("width") == 720
+        and hybrid_stream.get("height") == 1280):
+    raise RuntimeError(f"La base final no cumple 60 s y 720x1280: {hybrid_duration}s.")
+
+
 # Narration: a separate Mexican Spanish neural voice segment for each 5-second beat.
 voice_rms = []
 voice_engines = []
@@ -385,6 +490,7 @@ report = {
     "subtitle_ass": ass_path.name,
     "subtitle_layout": "bottom-center safe area at x=540,y=1640; manually wrapped to at most 3 lines",
     "animation": "Blender EEVEE procedural 3D character animation",
+    "wan22_enhancement": WAN_STATUS,
     "render_source": "720x1280 at native 30 fps with 24 EEVEE temporal samples; upscaled to 1080x1920 at 30 fps",
     "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
     "character_design": "brown monkey, bright red cap, white astronaut suit, silver rocket backpack; procedural adaptation of the official reference's key identifiers",
