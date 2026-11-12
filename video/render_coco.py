@@ -10,11 +10,13 @@ scene.render.engine="BLENDER_EEVEE"
 scene.eevee.use_gtao=True
 scene.eevee.gtao_distance=3
 scene.eevee.gtao_factor=1.35
-scene.render.resolution_x=720; scene.render.resolution_y=1280; scene.render.resolution_percentage=75
-# Free CPU-render profile: 540x960 at native 30 fps, then upscale to 1080x1920/30 fps.
-# The existing blocking animation is retimed below to preserve its 60-second duration.
+scene.render.resolution_x=720; scene.render.resolution_y=1280; scene.render.resolution_percentage=100
+# Higher-detail free CPU profile: render native 720x1280 at 30 fps, then upscale once to 1080x1920.
+# More temporal samples reduce jagged edges and stabilize fine details without paid render services.
 if hasattr(scene.eevee, "taa_render_samples"):
- scene.eevee.taa_render_samples=8
+ scene.eevee.taa_render_samples=24
+if hasattr(scene.eevee, "use_soft_shadows"):
+ scene.eevee.use_soft_shadows=True
 scene.render.fps=30; scene.frame_start=1; scene.frame_end=1800
 scene.render.image_settings.file_format="FFMPEG"
 scene.render.ffmpeg.format="MPEG4"
