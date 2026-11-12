@@ -54,6 +54,14 @@ La referencia privada `coco-referencia.webp` es **opcional**: el render diario c
 
 No guardar tokens, contraseñas ni claves en el repositorio. Si se utiliza el flujo manual de Hugging Face, `HF_TOKEN` debe configurarse como secreto solo si el usuario decide usar ese servicio.
 
+## Mejora híbrida opcional con Wan 2.2
+
+El flujo diario admite un plano de acción generado con **Wan 2.2 I2V 14B + Lightning LoRA (4 pasos)**. Cuando el secreto de repositorio `HF_TOKEN` está configurado y Hugging Face acepta la solicitud, el pipeline sustituye un tramo de 3.5 segundos del render Blender por un clip animado Wan, normaliza el resultado a 720×1280/30 FPS y vuelve a validar la duración total de 60 segundos. Si falta el token, el Space está ocupado, se agota la cuota o falla la generación, se conserva el render Blender y la producción continúa.
+
+Se limita intencionalmente a **un clip Wan por episodio**: la cuota gratuita de ZeroGPU es de 5 minutos de GPU al día para cuentas gratuitas, no permite prometer 12 clips ni tres videos diarios. El pipeline no compra créditos ni cambia hardware. El reporte `production-report.json` registra el estado en `wan22_enhancement`.
+
+Para activar la mejora, crear en Settings → Secrets and variables → Actions del repositorio el secreto `HF_TOKEN` con un token de Hugging Face. No escribir el token en archivos ni compartirlo en el chat. La referencia del personaje se extrae del propio render 3D, por lo que este paso no necesita acceso al repositorio privado.
+
 ## Archivos principales
 
 - `video/render_coco.py`: escena, materiales, personaje y animación 3D.
