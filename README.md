@@ -4,7 +4,8 @@ Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herr
 
 ## Fuente de verdad técnica
 
-- **Motor principal:** Blender EEVEE con personaje procedural y animación por keyframes.
+- **Motor principal:** Blender EEVEE con personaje procedural, actuación dirigida por cada escena y keyframes a 30 FPS.
+- **Calidad de render:** 720×1280 nativos, 24 muestras temporales EEVEE y sombras suaves cuando la versión de Blender lo permite; master final 1080×1920 con codificación H.264 CRF 17.
 - **Montaje y control:** FFmpeg / FFprobe.
 - **Voz principal:** Edge TTS, voz mexicana es-MX-DaliaNeural.
 - **Voz de respaldo:** espeak-ng local, si Edge TTS no responde o no tiene conexión.
@@ -63,10 +64,10 @@ No guardar tokens, contraseñas ni claves en el repositorio. Si se utiliza el fl
 
 ## Límites conocidos y próximos hitos
 
-- El personaje actual está construido con formas 3D procedurales; todavía no es un rig de deformación completo con malla, dedos articulados y sincronía labial fonética.
+- El personaje actual está construido con formas 3D procedurales y controles de actuación; todavía no es un rig de deformación completo con malla, dedos articulados y sincronía labial fonética. El estilo sigue siendo animación 3D estilizada, no fotorealismo.
 - La boca actual es una animación simple, no lip-sync real por fonemas.
 - La voz es generada por red cuando Edge TTS funciona; el respaldo local es más robótico.
-- La resolución final se amplía desde el render base 540×960 a 1080×1920; el escalado no añade detalle geométrico real.
+- La resolución final se renderiza primero a 720×1280 y se amplía a 1080×1920; el escalado final no añade detalle geométrico real.
 - El render puede tardar más que la ventana de Actions. La prioridad futura es guardar escenas y estado intermedio de forma persistente, para no repetir trabajo.
 - No se promete IA generativa ilimitada gratuita. Los modelos externos son reemplazables y nunca deben bloquear el motor principal.
 
