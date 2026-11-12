@@ -16,8 +16,8 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  # Separar la prueba nueva del render antiguo atascado, sin cancelarlo.
-  group: coco-daily-production-wan-test
+  # Separar la producción con publicación automática de ejecuciones anteriores atascadas.
+  group: coco-daily-production-autopublish
   cancel-in-progress: false
 jobs:
   produce:
