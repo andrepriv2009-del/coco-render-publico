@@ -78,6 +78,7 @@ jobs:
           test -s output/Coco-Short-60s-FINAL.mp4
           EPISODE_ID="$(python -c 'import json; print(json.load(open("output/episode.json", encoding="utf-8"))["id"])')"
           VIDEO_TITLE="$(python -c 'import json; print(json.load(open("output/episode.json", encoding="utf-8"))["title"])')"
+          VIDEO_SHA256="$(sha256sum output/Coco-Short-60s-FINAL.mp4 | cut -c1-64)"
           RESPONSE="$(curl --fail-with-body --silent --show-error \
             --retry 2 --retry-all-errors --retry-delay 5 --max-time 900 \
             -X POST "${WORKER_URL}/youtube/auto-upload" \
@@ -86,6 +87,7 @@ jobs:
             -H "X-GitHub-Run-SHA: ${GITHUB_SHA}" \
             -H "X-Episode-Id: ${EPISODE_ID}" \
             -H "X-Video-Title: ${VIDEO_TITLE}" \
+            -H "X-Video-SHA256: ${VIDEO_SHA256}" \
             -H "Content-Type: video/mp4" \
             --data-binary "@output/Coco-Short-60s-FINAL.mp4")"
           echo "$RESPONSE"
