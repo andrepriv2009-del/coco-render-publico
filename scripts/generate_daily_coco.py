@@ -165,7 +165,7 @@ if not (
     and abs(base_fps - 30) <= 0.01
 ):
     raise RuntimeError(
-        "f"El render 3D base no cumple 60 s, 2160x3840 y 30 fps: "
+        "El render 3D base no cumple 60 s, 2160x3840 y 30 fps: "
         f"{base_duration}s, {base_video.get('width')}x{base_video.get('height')}, {base_fps} fps"
     )
 motion_hashes = [frame_hash(BASE_VIDEO, t) for t in (2, 12, 22, 32, 42, 52)]
@@ -186,8 +186,10 @@ hybrid_stream = next(st for st in hybrid_probe["streams"] if st.get("codec_type"
 hybrid_duration = float(hybrid_probe["format"]["duration"])
 if not (59.5 <= hybrid_duration <= 60.5 and hybrid_stream.get("width") == 2160
         and hybrid_stream.get("height") == 3840):
-    raise RuntimeError(f"La base final no cumple 60 s y 2160x3840 nativos: {hybrid_duration}s, "
-    f"{hybrid_stream.get('width')}x{hybrid_stream.get('height')}.")
+    raise RuntimeError(
+        f"La base final no cumple 60 s y 2160x3840 nativos: {hybrid_duration}s, "
+        f"{hybrid_stream.get('width')}x{hybrid_stream.get('height')}."
+    )
 
 
 # Narration: a separate Mexican Spanish neural voice segment for each 5-second beat.
