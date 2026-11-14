@@ -127,7 +127,8 @@ story_index = ((serial - 1) * STORY_ROTATION_STEP) % len(STORY_SPECS)
 title, lines, friend_name, friend_description = make_story(*STORY_SPECS[story_index], serial)
 
 episode = {
-    "id": f"coco-{serial:04d}",
+    # Una identidad estable por día: reintentos y ejecuciones manuales no pueden publicar el mismo día como otro episodio.
+    "id": f"coco-{DAY.replace(chr(45), chr(95))}",
     "date": DAY,
     "serial": serial,
     "story_index": story_index,
