@@ -1,83 +1,71 @@
 # Coco, el Monito Espacial — producción 3D gratuita
 
-Este repositorio es la fuente de verdad del renderizador y la producción audiovisual de Coco. `coco-monito-espacial` permanece como backend privado (Worker + D1) para cola, episodios y servicios. El workflow de este repositorio genera y valida el MP4, pero actualmente NO publica en YouTube. No requiere activar facturación ni comprar créditos.
+Este repositorio es la fuente de verdad de la producción audiovisual y del renderizador 3D de Coco. El repositorio privado `coco-monito-espacial` conserva exclusivamente el backend (Worker + D1), episodios y servicios. El workflow de producción genera y valida el MP4, pero **no publica en YouTube**. No se compran créditos ni se activa facturación.
 
-## Fuente de verdad técnica
+## Perfil de entrega
 
-- **Motor principal:** Blender EEVEE con personaje procedural, actuación dirigida por cada escena y keyframes a 30 FPS.
-- **Calidad de render:** 720×1280 nativos, 8 muestras temporales EEVEE y sombras suaves cuando la versión de Blender lo permite; master final 1080×1920 con codificación H.264 CRF 17.
-- **Montaje y control:** FFmpeg / FFprobe.
-- **Voz principal:** Edge TTS, voz mexicana es-MX-DaliaNeural.
-- **Voz de respaldo:** espeak-ng local, si Edge TTS no responde o no tiene conexión.
-- **Música:** melodía original sintetizada localmente; no depende de una biblioteca comercial.
-- **Subtítulos:** SRT y subtítulos incrustados en el MP4.
-- **Generación IA externa:** opcional. Wan 2.2/Hugging Face se conserva como flujo manual experimental, nunca como requisito del render diario.
-- **Publicación:** desactivada en el workflow actual. La integración con el backend se mantiene separada y no se habilitará hasta validar el contrato, la autenticación, la idempotencia y un despliegue controlado.
+- **Resolución objetivo obligatoria:** 2160 × 3840 píxeles, vertical 4K nativo.
+- **Frecuencia:** 30 fps.
+- **Duración:** 60 segundos.
+- **Render:** Blender EEVEE a 2160 × 3840, porcentaje de resolución 100 %, 8 muestras.
+- **Integridad:** no se permite reducir ni ampliar la resolución, insertar clips de menor resolución ni etiquetar como 4K un vídeo reescalado.
+- **Vídeo:** FFmpeg / FFprobe, H.264, CRF 17, audio AAC.
+- **Voz:** Edge TTS es-MX-DaliaNeural; respaldo local espeak-ng.
+- **Música:** melodía original sintetizada localmente.
+- **Subtítulos:** SRT y ASS incrustados con zona segura vertical.
+- **Publicación:** desactivada. Los MP4 quedan como artefactos para revisión.
+
+El código y las pruebas ahora exigen 2160 × 3840 y 30 fps desde la salida de Blender hasta el MP4 final. **La primera ejecución 4K todavía debe terminar y producir un artefacto válido para considerar el estándar verificado.** No se declarará terminado solo porque el código o el workflow estén configurados.
 
 ## Producción automática
 
-Workflow de render único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml). La publicación queda fuera de este workflow mientras se completa y prueba la integración con el Worker privado.
+Workflow único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml).
 
-- Programado una vez al día: 00:30, hora de Nuevo León (UTC-6).
+- Un intento diario a las 00:30, hora de Nuevo León (UTC-6).
 - Ejecución manual disponible desde GitHub Actions.
-- Solo se ejecuta por horario diario o lanzamiento manual; los commits de desarrollo no inician producciones ni publicaciones.
-- Concurrencia serializada: no cancela un render activo ni permite dos producciones simultáneas.
-- El backend privado conserva las protecciones de idempotencia para futuras solicitudes autenticadas. El workflow audiovisual actual no envía archivos al Worker ni realiza publicaciones.
-- Límite máximo por ejecución: 90 minutos.
-- Los artefactos se conservan 30 días.
+- Concurrencia serializada: no cancela un render activo ni inicia dos producciones simultáneas.
+- Límite por ejecución: 180 minutos.
+- Artefactos conservados 30 días.
+- Sin paso de publicación ni subida automática a YouTube.
 
-**Importante sobre el plan gratuito:** el horario es un intento, no una garantía de ejecución ni de render terminado. GitHub Actions tiene cuotas mensuales y el render 3D consume CPU. No existe una opción de nube gratuita, ilimitada y garantizada. Si la cuota de Actions se agota, la producción se reanuda cuando se restablezca; no se activa facturación automáticamente.
+El horario es un intento, no una garantía de render terminado. El render 4K consume CPU y puede exceder el tiempo disponible del runner gratuito. No se activa facturación automáticamente. Si el runner gratuito no completa el render nativo, se documentará el bloqueo y no se sustituirá por una salida de menor resolución.
 
 ## Flujo de producción
 
-1. Recupera el código y, si está disponible, la referencia privada de Coco.
-2. Valida sintaxis, dependencias y recursos.
-3. Crea el episodio a partir de la biblioteca narrativa.
-4. Renderiza la escena 3D con Blender.
-5. Comprueba duración, resolución, variación visual y tamaño del render.
-6. Genera voz. Si Edge TTS falla, utiliza espeak-ng sin conexión.
+1. Recupera el código y la referencia visual privada opcional.
+2. Valida sintaxis y dependencias.
+3. Genera un episodio con identidad diaria estable.
+4. Renderiza 1800 fotogramas a 2160 × 3840 nativos y 30 fps con Blender.
+5. Comprueba duración, resolución, FPS y variación visual del render base.
+6. Genera voz mexicana; usa espeak-ng local si Edge TTS no responde.
 7. Sintetiza música original y prepara subtítulos.
-8. Ensambla el MP4 vertical y valida video, audio, duración y FPS.
-9. Guarda el MP4, SRT, episodio y reporte de producción como artefacto.
-10. Conserva el MP4, el episodio y el reporte como artefactos de revisión. La sincronización con D1 y la publicación se mantienen desactivadas hasta completar pruebas de integración.
+8. Monta el MP4 sin filtro de escalado.
+9. FFprobe verifica dimensiones, duración, FPS, audio y códec; se comprueba loudness.
+10. Guarda MP4, SRT, episodio y reporte como artefactos de revisión.
 
 ## Salidas
 
-- `output/Coco-Short-60s-FINAL.mp4`: master vertical 1080×1920, 30 FPS, 60 segundos.
+- `output/Coco-Short-60s-FINAL.mp4`: master vertical 2160 × 3840, 30 fps, 60 segundos.
 - `output/subtitles.srt`: subtítulos editables.
-- `output/episode.json`: guion y metadatos del episodio.
-- `output/production-report.json`: validación técnica, motores usados y referencia disponible.
+- `output/episode.json`: guion y metadatos.
+- `output/production-report.json`: resolución real, FPS, duración, audio y resultado de validación.
 
-La señal definitiva de éxito es que el MP4 exista y pase las validaciones; que GitHub Actions marque el job como exitoso por sí solo no demuestra que el archivo sea correcto.
+La evidencia definitiva es el MP4 descargable y su reporte FFprobe. Un job exitoso sin el artefacto esperado no cuenta como entrega.
 
-## Referencia visual y secretos
+## Referencia y privacidad
 
-La referencia privada `coco-referencia.webp` es **opcional**: el render diario conserva la identidad mediante el diseño procedural versionado en `video/render_coco.py`. Si existe `GH_READ_TOKEN`, el workflow intenta descargarla con reintentos. Si no está disponible, no bloquea el render.
-
-No guardar tokens, contraseñas ni claves en el repositorio. Si se utiliza el flujo manual de Hugging Face, `HF_TOKEN` debe configurarse como secreto solo si el usuario decide usar ese servicio.
-
-## Mejora híbrida opcional con Wan 2.2
-
-El flujo diario admite un plano de acción generado con **Wan 2.2 I2V 14B + Lightning LoRA (4 pasos)**. Cuando el secreto de repositorio `HF_TOKEN` está configurado y Hugging Face acepta la solicitud, el pipeline sustituye un tramo de 3.5 segundos del render Blender por un clip animado Wan, normaliza el resultado a 720×1280/30 FPS y vuelve a validar la duración total de 60 segundos. Si falta el token, el Space está ocupado, se agota la cuota o falla la generación, se conserva el render Blender y la producción continúa.
-
-Se limita intencionalmente a **un clip Wan por episodio**: la cuota gratuita de ZeroGPU es de 5 minutos de GPU al día para cuentas gratuitas, no permite prometer 12 clips ni tres videos diarios. El pipeline no compra créditos ni cambia hardware. El reporte `production-report.json` registra el estado en `wan22_enhancement`.
-
-Para activar la mejora, crear en Settings → Secrets and variables → Actions del repositorio el secreto `HF_TOKEN` con un token de Hugging Face. No escribir el token en archivos ni compartirlo en el chat. La referencia del personaje se extrae del propio render 3D, por lo que este paso no necesita acceso al repositorio privado.
+La referencia privada `coco-referencia.webp` es opcional: el diseño procedural versionado conserva los identificadores visuales de Coco (gorra roja, traje espacial y mochila cohete plateada). Si se usa `GH_READ_TOKEN`, se configura únicamente como secreto de Actions. No guardar tokens ni claves en el repositorio.
 
 ## Archivos principales
 
-- `video/render_coco.py`: escena, materiales, personaje y animación 3D.
-- `scripts/generate_daily_coco.py`: guion, render, voz, música, subtítulos, montaje y control de calidad.
-- `.github/workflows/coco-daily-production.yml`: único workflow automático, limitado a horario diario y ejecución manual; no se activa con commits.
-- `.github/workflows/generate-huggingface-video.yml`: herramienta manual experimental Wan 2.2, no usada por el pipeline diario.
-- `docs/PRODUCTION-ARCHITECTURE.md`: decisiones técnicas, riesgos y recuperación.
+- `video/render_coco.py`: escena, personaje y animación 3D nativa.
+- `scripts/generate_daily_coco.py`: episodio, voz, música, subtítulos, montaje y controles de calidad.
+- `.github/workflows/coco-daily-production.yml`: producción diaria y manual, sin publicación.
+- `.github/workflows/production-ci.yml`: sintaxis y pruebas del contrato de producción.
+- `docs/PRODUCTION-ARCHITECTURE.md`: arquitectura, límites y recuperación.
 
-## Límites conocidos y próximos hitos
+## Límites conocidos
 
-- El personaje actual está construido con formas 3D procedurales y controles de actuación; todavía no es un rig de deformación completo con malla, dedos articulados y sincronía labial fonética. El estilo sigue siendo animación 3D estilizada, no fotorealismo.
-- La boca actual es una animación simple, no lip-sync real por fonemas.
-- La voz es generada por red cuando Edge TTS funciona; el respaldo local es más robótico.
-- La resolución final se renderiza primero a 720×1280 y se amplía a 1080×1920; el escalado final no añade detalle geométrico real. Este master no es 4K nativo y no debe anunciarse como tal.
-- El render puede tardar más que la ventana de Actions. La prioridad futura es guardar escenas y estado intermedio de forma persistente, para no repetir trabajo.
-- No se promete IA generativa ilimitada gratuita. Los modelos externos son reemplazables y nunca deben bloquear el motor principal.
-
+- Coco se construye con formas 3D procedurales y controles de actuación; todavía no tiene una malla de producción con rig completo de deformación y sincronía labial fonética.
+- La voz de respaldo es más robótica que la voz neural.
+- El perfil nativo 4K requiere una ejecución completa de Blender. Hasta que esa ejecución produzca un artefacto 2160 × 3840/30 fps comprobado, el resultado se considera pendiente, no final.
