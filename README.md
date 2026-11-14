@@ -77,7 +77,7 @@ Para activar la mejora, crear en Settings → Secrets and variables → Actions 
 - El personaje actual está construido con formas 3D procedurales y controles de actuación; todavía no es un rig de deformación completo con malla, dedos articulados y sincronía labial fonética. El estilo sigue siendo animación 3D estilizada, no fotorealismo.
 - La boca actual es una animación simple, no lip-sync real por fonemas.
 - La voz es generada por red cuando Edge TTS funciona; el respaldo local es más robótico.
-- La resolución final se renderiza primero a 720×1280 y se amplía a 1080×1920; el escalado final no añade detalle geométrico real.
+- La resolución final se renderiza primero a 720×1280 y se amplía a 1080×1920; el escalado final no añade detalle geométrico real. Este master no es 4K nativo y no debe anunciarse como tal.
 - El render puede tardar más que la ventana de Actions. La prioridad futura es guardar escenas y estado intermedio de forma persistente, para no repetir trabajo.
 - No se promete IA generativa ilimitada gratuita. Los modelos externos son reemplazables y nunca deben bloquear el motor principal.
 
