@@ -320,7 +320,7 @@ if len(ass_entries) != 12:
 # Final portrait master: native 2160x3840, 30 fps, 60 seconds; no resize or upscale.
 # Explicit ASS positioning avoids the top-clipped SRT placement seen in the previous render.
 subtitle_filter = (
-    "scale=1080:1920:flags=lanczos,fps=30,"
+    "fps=30,"
     "subtitles=output/subtitles.ass"
 )
 run([
