@@ -1,28 +1,28 @@
 # Coco, el Monito Espacial — producción 3D gratuita
 
-Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herramientas gratuitas. Tras validar el MP4, el workflow diario lo publica en YouTube mediante el Worker privado; no requiere activar facturación ni comprar créditos.
+Este repositorio es la fuente de verdad del renderizador y la producción audiovisual de Coco. `coco-monito-espacial` permanece como backend privado (Worker + D1) para cola, episodios y servicios. El workflow de este repositorio genera y valida el MP4, pero actualmente NO publica en YouTube. No requiere activar facturación ni comprar créditos.
 
 ## Fuente de verdad técnica
 
 - **Motor principal:** Blender EEVEE con personaje procedural, actuación dirigida por cada escena y keyframes a 30 FPS.
-- **Calidad de render:** 720×1280 nativos, 24 muestras temporales EEVEE y sombras suaves cuando la versión de Blender lo permite; master final 1080×1920 con codificación H.264 CRF 17.
+- **Calidad de render:** 720×1280 nativos, 8 muestras temporales EEVEE y sombras suaves cuando la versión de Blender lo permite; master final 1080×1920 con codificación H.264 CRF 17.
 - **Montaje y control:** FFmpeg / FFprobe.
 - **Voz principal:** Edge TTS, voz mexicana es-MX-DaliaNeural.
 - **Voz de respaldo:** espeak-ng local, si Edge TTS no responde o no tiene conexión.
 - **Música:** melodía original sintetizada localmente; no depende de una biblioteca comercial.
 - **Subtítulos:** SRT y subtítulos incrustados en el MP4.
 - **Generación IA externa:** opcional. Wan 2.2/Hugging Face se conserva como flujo manual experimental, nunca como requisito del render diario.
-- **Publicación:** automática tras superar las validaciones del MP4; una identidad estable por fecha local, un bloqueo atómico en D1 y una huella SHA-256 única del MP4 impiden publicar dos veces el mismo episodio o archivo.
+- **Publicación:** desactivada en el workflow actual. La integración con el backend se mantiene separada y no se habilitará hasta validar el contrato, la autenticación, la idempotencia y un despliegue controlado.
 
 ## Producción automática
 
-Workflow único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml).
+Workflow de render único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml). La publicación queda fuera de este workflow mientras se completa y prueba la integración con el Worker privado.
 
 - Programado una vez al día: 00:30, hora de Nuevo León (UTC-6).
 - Ejecución manual disponible desde GitHub Actions.
 - Solo se ejecuta por horario diario o lanzamiento manual; los commits de desarrollo no inician producciones ni publicaciones.
 - Concurrencia serializada: no cancela un render activo ni permite dos producciones simultáneas.
-- Todas las ejecuciones de una misma fecha de Monterrey comparten el mismo `episode_id`; el productor calcula SHA-256 del MP4 y el Worker rechaza archivos idénticos aunque cambie el ID del episodio o la fecha. Los reintentos posteriores a una subida confirmada reciben respuesta de duplicado y no vuelven a subir el MP4.
+- El backend privado conserva las protecciones de idempotencia para futuras solicitudes autenticadas. El workflow audiovisual actual no envía archivos al Worker ni realiza publicaciones.
 - Límite máximo por ejecución: 90 minutos.
 - Los artefactos se conservan 30 días.
 
@@ -39,7 +39,7 @@ Workflow único: [Coco — Producción diaria automática](.github/workflows/coc
 7. Sintetiza música original y prepara subtítulos.
 8. Ensambla el MP4 vertical y valida video, audio, duración y FPS.
 9. Guarda el MP4, SRT, episodio y reporte de producción como artefacto.
-10. Publica el episodio una sola vez por fecha local mediante el Worker privado; si el mismo ID ya está subido o reservado, la segunda solicitud se bloquea.
+10. Conserva el MP4, el episodio y el reporte como artefactos de revisión. La sincronización con D1 y la publicación se mantienen desactivadas hasta completar pruebas de integración.
 
 ## Salidas
 
@@ -77,7 +77,7 @@ Para activar la mejora, crear en Settings → Secrets and variables → Actions 
 - El personaje actual está construido con formas 3D procedurales y controles de actuación; todavía no es un rig de deformación completo con malla, dedos articulados y sincronía labial fonética. El estilo sigue siendo animación 3D estilizada, no fotorealismo.
 - La boca actual es una animación simple, no lip-sync real por fonemas.
 - La voz es generada por red cuando Edge TTS funciona; el respaldo local es más robótico.
-- La resolución final se renderiza primero a 720×1280 y se amplía a 1080×1920; el escalado final no añade detalle geométrico real.
+- La resolución final se renderiza primero a 720×1280 y se amplía a 1080×1920; el escalado final no añade detalle geométrico real. Este master no es 4K nativo y no debe anunciarse como tal.
 - El render puede tardar más que la ventana de Actions. La prioridad futura es guardar escenas y estado intermedio de forma persistente, para no repetir trabajo.
 - No se promete IA generativa ilimitada gratuita. Los modelos externos son reemplazables y nunca deben bloquear el motor principal.
 
