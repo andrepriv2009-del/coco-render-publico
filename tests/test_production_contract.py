@@ -24,7 +24,7 @@ class ProductionContractTests(unittest.TestCase):
 
     def test_current_master_is_not_misrepresented_as_native_4k(self):
         self.assertIn("not native 4K", PIPELINE)
-        self.assertIn("no cumple todavía el estándar 4K nativo", README)
+        self.assertIn("no es 4K nativo", README)
 
     def test_daily_workflow_keeps_youtube_publishing_disabled(self):
         self.assertIn("workflow_dispatch", WORKFLOW)
