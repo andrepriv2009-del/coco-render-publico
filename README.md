@@ -1,6 +1,6 @@
 # Coco, el Monito Espacial — producción 3D gratuita
 
-Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herramientas gratuitas. **No publica en YouTube** y no requiere activar facturación ni comprar créditos.
+Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herramientas gratuitas. Tras validar el MP4, el workflow diario lo publica en YouTube mediante el Worker privado; no requiere activar facturación ni comprar créditos.
 
 ## Fuente de verdad técnica
 
@@ -12,7 +12,7 @@ Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herr
 - **Música:** melodía original sintetizada localmente; no depende de una biblioteca comercial.
 - **Subtítulos:** SRT y subtítulos incrustados en el MP4.
 - **Generación IA externa:** opcional. Wan 2.2/Hugging Face se conserva como flujo manual experimental, nunca como requisito del render diario.
-- **Publicación:** desactivada.
+- **Publicación:** automática tras superar las validaciones del MP4; una identidad estable por fecha local y un bloqueo atómico en D1 impiden publicar dos veces el mismo episodio.
 
 ## Producción automática
 
@@ -20,8 +20,9 @@ Workflow único: [Coco — Producción diaria automática](.github/workflows/coc
 
 - Programado una vez al día: 00:30, hora de Nuevo León (UTC-6).
 - Ejecución manual disponible desde GitHub Actions.
-- No se ejecuta por cada commit: evita consumir minutos gratuitos por cambios de código.
+- Solo se ejecuta por horario diario o lanzamiento manual; los commits de desarrollo no inician producciones ni publicaciones.
 - Concurrencia serializada: no cancela un render activo ni permite dos producciones simultáneas.
+- Todas las ejecuciones de una misma fecha de Monterrey comparten el mismo `episode_id`; los reintentos posteriores a una subida confirmada reciben respuesta de duplicado y no vuelven a subir el MP4.
 - Límite máximo por ejecución: 90 minutos.
 - Los artefactos se conservan 30 días.
 
@@ -38,6 +39,7 @@ Workflow único: [Coco — Producción diaria automática](.github/workflows/coc
 7. Sintetiza música original y prepara subtítulos.
 8. Ensambla el MP4 vertical y valida video, audio, duración y FPS.
 9. Guarda el MP4, SRT, episodio y reporte de producción como artefacto.
+10. Publica el episodio una sola vez por fecha local mediante el Worker privado; si el mismo ID ya está subido o reservado, la segunda solicitud se bloquea.
 
 ## Salidas
 
@@ -66,7 +68,7 @@ Para activar la mejora, crear en Settings → Secrets and variables → Actions 
 
 - `video/render_coco.py`: escena, materiales, personaje y animación 3D.
 - `scripts/generate_daily_coco.py`: guion, render, voz, música, subtítulos, montaje y control de calidad.
-- `.github/workflows/coco-daily-production.yml`: único workflow automático.
+- `.github/workflows/coco-daily-production.yml`: único workflow automático, limitado a horario diario y ejecución manual; no se activa con commits.
 - `.github/workflows/generate-huggingface-video.yml`: herramienta manual experimental Wan 2.2, no usada por el pipeline diario.
 - `docs/PRODUCTION-ARCHITECTURE.md`: decisiones técnicas, riesgos y recuperación.
 
