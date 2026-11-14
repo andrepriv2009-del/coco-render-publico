@@ -162,7 +162,7 @@ if not (
     59.5 <= base_duration <= 60.5
     and base_video.get("width") == 720
     and base_video.get("height") == 1280
-    and abs(base_fps - 15) <= 0.01
+    and abs(base_fps - 30) <= 0.01
 ):
     raise RuntimeError(
         f"El render 3D base no cumple 60 s, 720x1280 y 15 fps: "
@@ -493,7 +493,7 @@ report = {
     "subtitle_layout": "bottom-center safe area at x=540,y=1640; manually wrapped to at most 3 lines",
     "animation": "Blender EEVEE procedural 3D character animation",
     "wan22_enhancement": WAN_STATUS,
-    "render_source": "720x1280 at native 15 fps with 8 EEVEE temporal samples; encoded to 1080x1920 at 30 fps",
+    "render_source": "720x1280 at native 30 fps with 8 EEVEE temporal samples; encoded to 1080x1920 at 30 fps (upscaled; not native 4K)",
     "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
     "character_design": "brown monkey, bright red cap, white astronaut suit, silver rocket backpack; procedural adaptation of the official reference's key identifiers",
     "reference_image": {"file": REFERENCE.name, "dimensions": reference_size, "downloaded": reference_downloaded, "required": False},
