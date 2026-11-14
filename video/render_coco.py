@@ -10,8 +10,8 @@ scene.render.engine="BLENDER_EEVEE"
 scene.eevee.use_gtao=True
 scene.eevee.gtao_distance=3
 scene.eevee.gtao_factor=1.35
-scene.render.resolution_x=720; scene.render.resolution_y=1280; scene.render.resolution_percentage=100
-# Higher-detail free CPU profile: render native 720x1280 at 30 fps, then upscale once to 1080x1920.
+scene.render.resolution_x=2160; scene.render.resolution_y=3840; scene.render.resolution_percentage=100
+# Native vertical 4K master: Blender renders every frame at 2160x3840; no upscaling or resizing.
 # More temporal samples reduce jagged edges and stabilize fine details without paid render services.
 if hasattr(scene.eevee, "taa_render_samples"):
  scene.eevee.taa_render_samples=8
@@ -588,22 +588,9 @@ for datablock in animated_datablocks:
             key.handle_left.x *= 2.0
             key.handle_right.x *= 2.0
 
-# FAST FREE-CLOUD PROFILE: 15 unique frames/sec at 8 samples.
-# Preserve the full 60-second story by compressing all final keyframe times.
-# The assembly pipeline expands the master to a 30 fps delivery file.
-for datablock in animated_datablocks:
-    animation_data = getattr(datablock, "animation_data", None)
-    action = animation_data.action if animation_data else None
-    if action is None:
-        continue
-    for fc in action.fcurves:
-        for key in fc.keyframe_points:
-            key.co.x *= 0.5
-            key.handle_left.x *= 0.5
-            key.handle_right.x *= 0.5
-        fc.update()
-scene.render.fps = 15
-scene.frame_end = 900
+# Native 30 fps delivery: preserve all 1800 unique frames for the full 60-second episode.
+scene.render.fps = 30
+scene.frame_end = 1800
 
 scene.render.filepath=OUT+"/coco-base.mp4"
 scene.frame_set(1)
