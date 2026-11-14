@@ -5,6 +5,8 @@ on:
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
+  push:
+    branches: ["preview/native-4k-2026-11-14"]
 permissions:
   contents: read
   actions: read
