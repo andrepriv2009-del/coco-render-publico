@@ -1,22 +1,22 @@
 # Coco, el Monito Espacial — producción 3D gratuita
 
-Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herramientas gratuitas. Tras validar el MP4, el workflow diario lo publica en YouTube mediante el Worker privado; no requiere activar facturación ni comprar créditos.
+Este repositorio es la fuente de verdad del renderizador y la producción audiovisual de Coco. `coco-monito-espacial` permanece como backend privado (Worker + D1) para cola, episodios y servicios. El workflow de este repositorio genera y valida el MP4, pero actualmente NO publica en YouTube. No requiere activar facturación ni comprar créditos.
 
 ## Fuente de verdad técnica
 
 - **Motor principal:** Blender EEVEE con personaje procedural, actuación dirigida por cada escena y keyframes a 30 FPS.
-- **Calidad de render:** 720×1280 nativos, 24 muestras temporales EEVEE y sombras suaves cuando la versión de Blender lo permite; master final 1080×1920 con codificación H.264 CRF 17.
+- **Calidad de render:** 720×1280 nativos, 8 muestras temporales EEVEE y sombras suaves cuando la versión de Blender lo permite; master final 1080×1920 con codificación H.264 CRF 17.
 - **Montaje y control:** FFmpeg / FFprobe.
 - **Voz principal:** Edge TTS, voz mexicana es-MX-DaliaNeural.
 - **Voz de respaldo:** espeak-ng local, si Edge TTS no responde o no tiene conexión.
 - **Música:** melodía original sintetizada localmente; no depende de una biblioteca comercial.
 - **Subtítulos:** SRT y subtítulos incrustados en el MP4.
 - **Generación IA externa:** opcional. Wan 2.2/Hugging Face se conserva como flujo manual experimental, nunca como requisito del render diario.
-- **Publicación:** automática tras superar las validaciones del MP4; una identidad estable por fecha local, un bloqueo atómico en D1 y una huella SHA-256 única del MP4 impiden publicar dos veces el mismo episodio o archivo.
+- **Publicación:** desactivada en el workflow actual. La integración con el backend se mantiene separada y no se habilitará hasta validar el contrato, la autenticación, la idempotencia y un despliegue controlado.
 
 ## Producción automática
 
-Workflow único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml).
+Workflow de render único: [Coco — Producción diaria automática](.github/workflows/coco-daily-production.yml). La publicación queda fuera de este workflow mientras se completa y prueba la integración con el Worker privado.
 
 - Programado una vez al día: 00:30, hora de Nuevo León (UTC-6).
 - Ejecución manual disponible desde GitHub Actions.
