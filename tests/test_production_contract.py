@@ -27,7 +27,9 @@ class ProductionContractTests(unittest.TestCase):
         self.assertIn("2160x3840", PIPELINE)
         self.assertNotIn("scale=1080:1920", PIPELINE)
         self.assertIn("disabled_native_4k_integrity", PIPELINE)
-        self.assertIn("no es 4K nativo", README)
+        self.assertIn("La primera ejecución 4K todavía debe terminar", README)
+        self.assertNotIn("720×1280", README)
+        self.assertNotIn("1080×1920", README)
 
     def test_daily_workflow_keeps_youtube_publishing_disabled(self):
         self.assertIn("workflow_dispatch", WORKFLOW)
