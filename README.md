@@ -12,7 +12,7 @@ Este repositorio produce episodios infantiles de Coco con Blender, FFmpeg y herr
 - **Música:** melodía original sintetizada localmente; no depende de una biblioteca comercial.
 - **Subtítulos:** SRT y subtítulos incrustados en el MP4.
 - **Generación IA externa:** opcional. Wan 2.2/Hugging Face se conserva como flujo manual experimental, nunca como requisito del render diario.
-- **Publicación:** automática tras superar las validaciones del MP4; una identidad estable por fecha local y un bloqueo atómico en D1 impiden publicar dos veces el mismo episodio.
+- **Publicación:** automática tras superar las validaciones del MP4; una identidad estable por fecha local, un bloqueo atómico en D1 y una huella SHA-256 única del MP4 impiden publicar dos veces el mismo episodio o archivo.
 
 ## Producción automática
 
@@ -22,7 +22,7 @@ Workflow único: [Coco — Producción diaria automática](.github/workflows/coc
 - Ejecución manual disponible desde GitHub Actions.
 - Solo se ejecuta por horario diario o lanzamiento manual; los commits de desarrollo no inician producciones ni publicaciones.
 - Concurrencia serializada: no cancela un render activo ni permite dos producciones simultáneas.
-- Todas las ejecuciones de una misma fecha de Monterrey comparten el mismo `episode_id`; los reintentos posteriores a una subida confirmada reciben respuesta de duplicado y no vuelven a subir el MP4.
+- Todas las ejecuciones de una misma fecha de Monterrey comparten el mismo `episode_id`; el productor calcula SHA-256 del MP4 y el Worker rechaza archivos idénticos aunque cambie el ID del episodio o la fecha. Los reintentos posteriores a una subida confirmada reciben respuesta de duplicado y no vuelven a subir el MP4.
 - Límite máximo por ejecución: 90 minutos.
 - Los artefactos se conservan 30 días.
 
