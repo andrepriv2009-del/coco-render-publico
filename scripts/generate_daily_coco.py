@@ -22,7 +22,7 @@ OUT.mkdir(exist_ok=True)
 AUDIO.mkdir(parents=True, exist_ok=True)
 TMP.mkdir(parents=True, exist_ok=True)
 
-WIDTH, HEIGHT, FPS, DURATION = 1080, 1920, 30, 60
+WIDTH, HEIGHT, FPS, DURATION = 2160, 3840, 30, 60
 SLOT = 5
 DAY = datetime.now(ZoneInfo("America/Monterrey")).strftime("%Y-%m-%d")
 REFERENCE = Path("coco-referencia.webp")
@@ -160,12 +160,12 @@ base_duration = float(base_probe["format"]["duration"])
 base_fps = float(Fraction(base_video.get("avg_frame_rate", "0/1")))
 if not (
     59.5 <= base_duration <= 60.5
-    and base_video.get("width") == 720
-    and base_video.get("height") == 1280
+    and base_video.get("width") == 2160
+    and base_video.get("height") == 3840
     and abs(base_fps - 30) <= 0.01
 ):
     raise RuntimeError(
-        f"El render 3D base no cumple 60 s, 720x1280 y 15 fps: "
+        "f"El render 3D base no cumple 60 s, 2160x3840 y 30 fps: "
         f"{base_duration}s, {base_video.get('width')}x{base_video.get('height')}, {base_fps} fps"
     )
 motion_hashes = [frame_hash(BASE_VIDEO, t) for t in (2, 12, 22, 32, 42, 52)]
@@ -173,99 +173,9 @@ if len(set(motion_hashes)) < 4:
     raise RuntimeError("La validación detectó muy poco cambio visual entre escenas del render 3D.")
 print("BLENDER_3D_RENDER_VALIDATED=1", flush=True)
 
-# Production profile v2 — Wan 2.2 optional hero shot + deterministic Blender fallback.
-# Optional hybrid shot: one Wan 2.2 Lightning clip per daily episode.
-# Hugging Face ZeroGPU has a small free daily quota, so it is deliberately
-# limited to ONE short hero shot. Blender remains the reliable full-length fallback.
-WAN_STATUS = "not_configured"
-if os.environ.get("HF_TOKEN", "").strip():
-    try:
-        from gradio_client import Client, handle_file
-        import shutil
-
-        print("WAN_ENHANCEMENT_START=1", flush=True)
-        wan_reference = TMP / "wan-reference.png"
-        wan_raw = TMP / "wan-raw.mp4"
-        wan_clip = TMP / "wan-normalized.mp4"
-        original_video = BASE_VIDEO
-        run(["ffmpeg", "-y", "-ss", "2", "-i", str(original_video),
-             "-frames:v", "1", "-q:v", "2", str(wan_reference)], quiet=True)
-        client = Client("zerogpu-aoti/wan2-2-fp8da-aoti-faster",
-                        token=os.environ["HF_TOKEN"].strip())
-        wan_prompt = (
-            "Animate the exact same friendly brown monkey astronaut from the input image. "
-            "Preserve his bright red cap, white astronaut suit and small silver rocket backpack. "
-            "He turns toward the camera, smiles, waves, and makes a small joyful zero-gravity bounce. "
-            "Keep the same character identity and outfit throughout, smooth natural full-body motion, "
-            "cinematic stylized 3D family animation, stable camera, colorful spaceship interior."
-        )
-        result = client.predict(
-            input_image=handle_file(str(wan_reference)),
-            prompt=wan_prompt,
-            steps=4,
-            negative_prompt=(
-                "low quality, flicker, jitter, deformed face, extra limbs, changed clothes, "
-                "missing red cap, missing rocket backpack, text, watermark, scene cuts"
-            ),
-            duration_seconds=3.5,
-            guidance_scale=1,
-            guidance_scale_2=1,
-            seed=serial,
-            randomize_seed=False,
-            api_name="/generate_video",
-        )
-        video_path = result[0] if isinstance(result, (tuple, list)) else result
-        if isinstance(video_path, dict):
-            video_path = video_path.get("path") or video_path.get("name")
-        if not video_path or not Path(video_path).is_file():
-            raise RuntimeError(f"Wan no devolvió un MP4 válido: {video_path!r}")
-        shutil.copy2(video_path, wan_raw)
-
-        # Replace only seconds 2.0–5.5 of the Blender master. Keep the complete
-        # episode at 60 seconds and normalize all segments to the same H.264 profile.
-        part_a = TMP / "hybrid-a.mp4"
-        part_b = TMP / "hybrid-b.mp4"
-        part_c = TMP / "hybrid-c.mp4"
-        def normalize_segment(source, destination, start=None, duration=None):
-            command = ["ffmpeg", "-y"]
-            if start is not None:
-                command += ["-ss", str(start)]
-            command += ["-i", str(source)]
-            if duration is not None:
-                command += ["-t", str(duration)]
-            command += [
-                "-an", "-vf",
-                "fps=30,scale=720:1280:force_original_aspect_ratio=increase,"
-                "crop=720:1280,setsar=1",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18",
-                "-pix_fmt", "yuv420p", "-r", "30", "-movflags", "+faststart",
-                str(destination),
-            ]
-            run(command, quiet=True)
-
-        normalize_segment(original_video, part_a, 0, 2.0)
-        normalize_segment(wan_raw, part_b, None, 3.5)
-        normalize_segment(original_video, part_c, 5.5, 54.5)
-        concat_list = TMP / "hybrid-list.txt"
-        concat_list.write_text(
-            "".join(f"file '{p.resolve()}'\n" for p in (part_a, part_b, part_c)),
-            encoding="utf-8",
-        )
-        hybrid = TMP / "coco-base-hybrid.mp4"
-        run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i",
-             str(concat_list), "-c", "copy", str(hybrid)], quiet=True)
-        if not hybrid.is_file() or hybrid.stat().st_size < 100_000:
-            raise RuntimeError("El montaje híbrido Wan + Blender no produjo un MP4 válido.")
-        BASE_VIDEO = hybrid
-        WAN_STATUS = "one_3.5s_wan22_lightning_shot"
-        print("WAN_ENHANCEMENT_VALIDATED=1", flush=True)
-    except Exception as exc:
-        WAN_STATUS = f"fallback_blender: {type(exc).__name__}: {exc}"
-        BASE_VIDEO = TMP / "coco-base.mp4"
-        print(f"WAN_ENHANCEMENT_FALLBACK={WAN_STATUS}", flush=True)
-else:
-    WAN_STATUS = "skipped_no_HF_TOKEN"
-    print("WAN_ENHANCEMENT_SKIPPED=HF_TOKEN no configurado; se conserva Blender.", flush=True)
+# Wan queda desactivado para proteger el requisito 4K nativo: no se insertan clips
+# de menor resolución ni se permite reescalarlos dentro del master.
+WAN_STATUS = "disabled_native_4k_integrity"
 
 # Validate the final base timeline after optional enhancement.
 hybrid_probe = json.loads(subprocess.check_output(
@@ -274,9 +184,10 @@ hybrid_probe = json.loads(subprocess.check_output(
 ))
 hybrid_stream = next(st for st in hybrid_probe["streams"] if st.get("codec_type") == "video")
 hybrid_duration = float(hybrid_probe["format"]["duration"])
-if not (59.5 <= hybrid_duration <= 60.5 and hybrid_stream.get("width") == 720
-        and hybrid_stream.get("height") == 1280):
-    raise RuntimeError(f"La base final no cumple 60 s y 720x1280: {hybrid_duration}s.")
+if not (59.5 <= hybrid_duration <= 60.5 and hybrid_stream.get("width") == 2160
+        and hybrid_stream.get("height") == 3840):
+    raise RuntimeError(f"La base final no cumple 60 s y 2160x3840 nativos: {hybrid_duration}s, "
+    f"{hybrid_stream.get('width')}x{hybrid_stream.get('height')}.")
 
 
 # Narration: a separate Mexican Spanish neural voice segment for each 5-second beat.
@@ -376,7 +287,7 @@ for index, line in enumerate(lines):
     )
     ass_entries.append(
         f"Dialogue: 0,{ass_stamp(index * SLOT)},{ass_stamp((index + 1) * SLOT)},"
-        f"Coco,,0,0,0,,{{\\an2\\pos(540,1640)\\q2}}{ass_caption}"
+        f"Coco,,0,0,0,,{{\\an2\\pos(1080,3280)\\q2}}{ass_caption}"
     )
 
 srt_path = OUT / "subtitles.srt"
@@ -388,14 +299,14 @@ ass_path = OUT / "subtitles.ass"
 ass_header = [
     "[Script Info]",
     "ScriptType: v4.00+",
-    "PlayResX: 1080",
-    "PlayResY: 1920",
+    "PlayResX: 2160",
+    "PlayResY: 3840",
     "WrapStyle: 2",
     "ScaledBorderAndShadow: yes",
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    "Style: Coco,DejaVu Sans,42,&H00FFFFFF,&H000000FF,&H00101830,&H80000000,0,0,0,0,100,100,0,0,1,3,1,2,110,110,280,1",
+    "Style: Coco,DejaVu Sans,84,&H00FFFFFF,&H000000FF,&H00101830,&H80000000,0,0,0,0,100,100,0,0,1,6,2,2,220,220,560,1",
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -404,7 +315,7 @@ ass_path.write_text("\n".join(ass_header + ass_entries) + "\n", encoding="utf-8"
 if len(ass_entries) != 12:
     raise RuntimeError("El archivo ASS no contiene las 12 escenas esperadas.")
 
-# Final portrait master: 1080x1920, 30 fps, Mexican Spanish narration and original score.
+# Final portrait master: native 2160x3840, 30 fps, 60 seconds; no resize or upscale.
 # Explicit ASS positioning avoids the top-clipped SRT placement seen in the previous render.
 subtitle_filter = (
     "scale=1080:1920:flags=lanczos,fps=30,"
@@ -436,7 +347,7 @@ fps = float(Fraction(video_stream["avg_frame_rate"]))
 if not (59.8 <= duration <= 60.2):
     raise RuntimeError(f"Duración final incorrecta: {duration}s.")
 if video_stream.get("width") != WIDTH or video_stream.get("height") != HEIGHT:
-    raise RuntimeError("La resolución final no es 1080x1920.")
+    raise RuntimeError("La resolución final no es 2160x3840 nativa.")
 if abs(fps - FPS) > 0.01:
     raise RuntimeError(f"El video final no es 30 fps: {video_stream['avg_frame_rate']}.")
 if not audio_stream or FINAL_VIDEO.stat().st_size < 500_000:
@@ -490,10 +401,10 @@ report = {
     "music": "original synthesized melody; no paid or licensed track",
     "subtitles": "12 Spanish captions burned into the MP4 using positioned ASS plus separate SRT",
     "subtitle_ass": ass_path.name,
-    "subtitle_layout": "bottom-center safe area at x=540,y=1640; manually wrapped to at most 3 lines",
+    "subtitle_layout": "bottom-center safe area at x=1080,y=3280; manually wrapped to at most 3 lines",
     "animation": "Blender EEVEE procedural 3D character animation",
     "wan22_enhancement": WAN_STATUS,
-    "render_source": "720x1280 at native 30 fps with 8 EEVEE temporal samples; encoded to 1080x1920 at 30 fps (upscaled; not native 4K)",
+    "render_source": "Blender EEVEE native 2160x3840 at 30 fps with 8 samples; no upscaling or resizing",
     "motion_validation": "6 sampled timestamps; at least 4 distinct frame hashes",
     "character_design": "brown monkey, bright red cap, white astronaut suit, silver rocket backpack; procedural adaptation of the official reference's key identifiers",
     "reference_image": {"file": REFERENCE.name, "dimensions": reference_size, "downloaded": reference_downloaded, "required": False},
