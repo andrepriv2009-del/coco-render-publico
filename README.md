@@ -22,7 +22,7 @@ Workflow de render único: [Coco — Producción diaria automática](.github/wor
 - Ejecución manual disponible desde GitHub Actions.
 - Solo se ejecuta por horario diario o lanzamiento manual; los commits de desarrollo no inician producciones ni publicaciones.
 - Concurrencia serializada: no cancela un render activo ni permite dos producciones simultáneas.
-- Todas las ejecuciones de una misma fecha de Monterrey comparten el mismo `episode_id`; el productor calcula SHA-256 del MP4 y el Worker rechaza archivos idénticos aunque cambie el ID del episodio o la fecha. Los reintentos posteriores a una subida confirmada reciben respuesta de duplicado y no vuelven a subir el MP4.
+- El backend privado conserva las protecciones de idempotencia para futuras solicitudes autenticadas. El workflow audiovisual actual no envía archivos al Worker ni realiza publicaciones.
 - Límite máximo por ejecución: 90 minutos.
 - Los artefactos se conservan 30 días.
 
@@ -39,7 +39,7 @@ Workflow de render único: [Coco — Producción diaria automática](.github/wor
 7. Sintetiza música original y prepara subtítulos.
 8. Ensambla el MP4 vertical y valida video, audio, duración y FPS.
 9. Guarda el MP4, SRT, episodio y reporte de producción como artefacto.
-10. Publica el episodio una sola vez por fecha local mediante el Worker privado; si el mismo ID ya está subido o reservado, la segunda solicitud se bloquea.
+10. Conserva el MP4, el episodio y el reporte como artefactos de revisión. La sincronización con D1 y la publicación se mantienen desactivadas hasta completar pruebas de integración.
 
 ## Salidas
 
